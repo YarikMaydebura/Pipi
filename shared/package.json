@@ -1,0 +1,23 @@
+{
+  "name": "@pipi/shared",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Message types shared by the brain (mirrored in Python) and the TypeScript frontends",
+  "type": "module",
+  "main": "./protocol.ts",
+  "types": "./protocol.ts",
+  "exports": {
+    ".": "./protocol.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.3",
+    "vitest": "^5.1.0"
+  }
+}

@@ -1,0 +1,108 @@
+{
+  "brain_to_body": [
+    {
+      "type": "activate",
+      "id": "6f1c2a80-0001-4000-8000-000000000001",
+      "ts": 1763100000000,
+      "entrance": "jump_in"
+    },
+    {
+      "type": "deactivate",
+      "id": "6f1c2a80-0002-4000-8000-000000000002",
+      "ts": 1763100000100,
+      "exit": "jump_out"
+    },
+    {
+      "type": "speak",
+      "id": "6f1c2a80-0003-4000-8000-000000000003",
+      "ts": 1763100000200,
+      "text": "Ta-da! Hi again!",
+      "audio_b64": "SUQzBAAAAAAA",
+      "expression": "happy"
+    },
+    {
+      "type": "speak",
+      "id": "6f1c2a80-0004-4000-8000-000000000004",
+      "ts": 1763100000300,
+      "text": "Captions only, no audio.",
+      "expression": "idle"
+    },
+    {
+      "type": "eyes",
+      "id": "6f1c2a80-0005-4000-8000-000000000005",
+      "ts": 1763100000400,
+      "state": "signal_go"
+    },
+    {
+      "type": "motion",
+      "id": "6f1c2a80-0006-4000-8000-000000000006",
+      "ts": 1763100000500,
+      "name": "signature_wave"
+    },
+    {
+      "type": "caption",
+      "id": "6f1c2a80-0007-4000-8000-000000000007",
+      "ts": 1763100000600,
+      "text": "Break time!"
+    },
+    {
+      "type": "caption",
+      "id": "6f1c2a80-0008-4000-8000-000000000008",
+      "ts": 1763100000700,
+      "text": null
+    }
+  ],
+  "body_to_brain": [
+    {
+      "type": "hello",
+      "id": "6f1c2a80-0101-4000-8000-000000000101",
+      "ts": 1763100001000,
+      "body": "desktop_pet",
+      "version": "0.1.0"
+    },
+    {
+      "type": "ack",
+      "id": "6f1c2a80-0102-4000-8000-000000000102",
+      "ts": 1763100001100,
+      "ref_id": "6f1c2a80-0003-4000-8000-000000000003",
+      "ok": true
+    },
+    {
+      "type": "ack",
+      "id": "6f1c2a80-0103-4000-8000-000000000103",
+      "ts": 1763100001200,
+      "ref_id": "6f1c2a80-0006-4000-8000-000000000006",
+      "ok": false,
+      "error": "unknown motion"
+    },
+    {
+      "type": "speech_done",
+      "id": "6f1c2a80-0104-4000-8000-000000000104",
+      "ts": 1763100001300,
+      "ref_id": "6f1c2a80-0003-4000-8000-000000000003",
+      "duration_ms": 1840
+    },
+    {
+      "type": "user_click",
+      "id": "6f1c2a80-0105-4000-8000-000000000105",
+      "ts": 1763100001400,
+      "target": "pipi"
+    }
+  ],
+  "invalid_brain_to_body": [
+    { "type": "activate", "id": "x", "ts": 1, "entrance": "teleport" },
+    { "type": "eyes", "id": "x", "ts": 1, "state": "rainbow" },
+    { "type": "motion", "id": "x", "ts": 1, "name": "" },
+    { "type": "speak", "id": "x", "ts": 1, "text": "hi", "unexpected_field": true },
+    { "type": "caption", "id": "x", "ts": 1 },
+    { "type": "dance", "id": "x", "ts": 1 }
+  ],
+  "invalid_body_to_brain": [
+    { "type": "hello", "id": "x", "ts": 1, "body": "alpha_mini", "version": "0.1.0" },
+    { "type": "speech_done", "id": "x", "ts": 1, "ref_id": "y", "duration_ms": -5 },
+    { "type": "ack", "id": "", "ts": 1, "ref_id": "y", "ok": true },
+    { "type": "user_click", "id": "x", "ts": -1, "target": "pipi" },
+    { "type": "speech_done", "id": "x", "ts": 1, "ref_id": "y", "duration_ms": "100" },
+    { "type": "hello", "id": "x", "ts": 1.5, "body": "desktop_pet", "version": "0.1.0" }
+  ]
+}
