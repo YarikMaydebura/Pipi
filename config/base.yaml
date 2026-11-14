@@ -1,0 +1,40 @@
+# Shared defaults for every mode. Mode files (dev/study/demo.yaml) start with
+# `extends: base.yaml` and only list what differs. Relative paths are relative to this folder.
+
+mode: dev                 # overridden by every mode file
+env_file: ../.env         # secrets (OPENAI_API_KEY, WOZ_TOKEN) live here, never in YAML
+
+server:
+  host: 127.0.0.1         # study/demo switch to 0.0.0.0 so the WoZ laptop can connect
+  port: 8765
+
+pet:
+  robot_side: right       # which screen edge faces the robot; Pipi jumps off this side
+
+robot:
+  body: fake_robot        # fake_robot | alpha_mini
+
+timers:
+  focus_s: 240            # fixed reading time before the break (4 min)
+  focus_precue_s: 210     # 3:30 -> small stretch/yawn animation as a soft pre-cue
+  break_max_s: 300        # forces ROBOT_GOODBYE if the break runs long; null = no limit
+  silence_reprompt_s: 12  # one gentle re-prompt after this much silence
+
+models:                   # course rule: only these three models are allowed (enforced in code)
+  dialogue: gpt-5-nano
+  stt: gpt-4o-mini-transcribe
+  tts: tts-1
+  tts_voice: nova
+
+logging:
+  dir: ../logs            # gitignored; one folder per session
+  save_audio: false       # participant audio is NOT stored by default
+  verbose: false
+
+cues:                     # identity cues we intend to show (actual state is logged per session)
+  same_eyes: true
+  same_voice: true
+  signature_phrase: true
+  signature_gesture: true
+  memory_references: true
+  transition_animation: true

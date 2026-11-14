@@ -1,0 +1,12 @@
+# Demo day: real robot (fake robot as backup via WoZ), free game choice, no break limit.
+extends: base.yaml
+mode: demo
+
+server:
+  host: 0.0.0.0
+
+robot:
+  body: alpha_mini
+
+timers:
+  break_max_s: null       # WoZ ends the break

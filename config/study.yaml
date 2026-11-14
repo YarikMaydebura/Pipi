@@ -1,0 +1,10 @@
+# Participant sessions: real robot, fixed flow, 4-minute focus (defaults from base.yaml).
+# Keep this file small: every participant must get exactly the same settings.
+extends: base.yaml
+mode: study
+
+server:
+  host: 0.0.0.0           # WoZ panel runs on a second laptop
+
+robot:
+  body: alpha_mini

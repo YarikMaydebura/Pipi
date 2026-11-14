@@ -1,0 +1,14 @@
+# Development: fake robot, short timers, verbose logging.
+extends: base.yaml
+mode: dev
+
+robot:
+  body: fake_robot
+
+timers:
+  focus_s: 30
+  focus_precue_s: 20
+  break_max_s: 120
+
+logging:
+  verbose: true
