@@ -1,0 +1,54 @@
+# --- Project rule: no Markdown or Claude files in the repo ---
+*.md
+CLAUDE.md
+docs/
+.claude/
+FIRST_PROMPT.txt
+
+# --- Secrets ---
+.env
+.env.*
+!.env.example
+
+# --- Study data (participant data, never commit) ---
+logs/
+recordings/
+study_data/
+*.jsonl
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+build/
+dist/
+
+# --- Node / Electron ---
+node_modules/
+out/
+release/
+.vite/
+*.tsbuildinfo
+
+# --- Test coverage ---
+coverage/
+htmlcov/
+.coverage
+
+# --- Caches and models ---
+cache/
+tts_cache/
+*.onnx
+*.tflite
+*.task
+
+# --- OS / editors ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
