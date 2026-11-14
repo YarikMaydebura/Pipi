@@ -1,0 +1,39 @@
+/* Placeholder styling for the M0 skeleton pages. */
+:root {
+  --color-bg: #f6f4ef;
+  --color-text: #1d2233;
+  --color-muted: #6b7088;
+  --color-accent: #1b7fa8;
+  --font-ui: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-ui);
+}
+
+.page {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 3rem 16px;
+}
+
+h1 {
+  margin: 0 0 0.5rem;
+}
+
+.muted,
+.status {
+  color: var(--color-muted);
+}
+
+.links {
+  padding-left: 1.2rem;
+  line-height: 1.9;
+}
+
+a {
+  color: var(--color-accent);
+}

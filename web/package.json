@@ -1,0 +1,22 @@
+{
+  "name": "@pipi/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Wizard-of-Oz panel (experimenter) and fake robot (browser body)",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@pipi/shared": "*"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.3",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.0"
+  }
+}
