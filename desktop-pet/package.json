@@ -1,0 +1,25 @@
+{
+  "name": "@pipi/desktop-pet",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pipi's screen body: a transparent always-on-top desktop pet (Electron)",
+  "type": "module",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "typecheck": "tsc --noEmit --composite false -p tsconfig.node.json && tsc --noEmit --composite false -p tsconfig.web.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@pipi/shared": "*"
+  },
+  "devDependencies": {
+    "electron": "^45.3.2",
+    "electron-vite": "^6.0.0",
+    "typescript": "~6.0.3",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.0"
+  }
+}
