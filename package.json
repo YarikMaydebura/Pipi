@@ -1,0 +1,33 @@
+{
+  "name": "pipi",
+  "private": true,
+  "description": "Pipi: a study companion that migrates from a desktop pet into an Alpha Mini robot",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "workspaces": [
+    "shared",
+    "desktop-pet",
+    "web"
+  ],
+  "scripts": {
+    "check": "npm run lint && npm run format:check && npm run typecheck && npm run test",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.0.0",
+    "eslint": "^10.15.0",
+    "globals": "^17.14.0",
+    "prettier": "^3.10.1",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.72.2",
+    "vitest": "^5.1.0"
+  }
+}
