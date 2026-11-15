@@ -127,7 +127,9 @@ async def test_harmless_commands_are_retried_once_after_a_timeout() -> None:
     result = await pet.set_eyes("thinking")
     assert not result.ok and result.timed_out
     assert link.types().count("eyes") == 2
-    errors = log.of("body_error")
+    # Only the eyes errors: on slower runners (Windows CI) the start-up body_config can
+    # still be waiting for its ack when acks are switched off, and time out as well.
+    errors = [e for e in log.of("body_error") if e["message_type"] == "eyes"]
     assert [e["retry"] for e in errors] == [True, False]
 
 
