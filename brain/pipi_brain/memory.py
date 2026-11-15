@@ -110,6 +110,21 @@ class Memory(_Frozen):
             return self, []
         return self.model_copy(update=changes), list(changes)
 
+    def with_persona(self, persona: str) -> Memory:
+        return self.model_copy(update={"persona": persona})
+
+    def add_word_help(self, term: str, phase: str, ts: int) -> Memory:
+        entry = WordHelp(term=_clean(term, MAX_LABEL_CHARS) or "?", phase=phase, ts=ts)
+        return self.model_copy(update={"word_help": (*self.word_help, entry)})
+
+    def add_game_event(self, game: str, summary: str) -> Memory:
+        """Record a game moment; the first one also becomes the break highlight."""
+        event = GameEvent(game=game, summary=_clean(summary, MAX_TEXT_CHARS) or game)
+        update: dict[str, Any] = {"game_events": (*self.game_events, event)}
+        if self.break_highlight is None:
+            update["break_highlight"] = event.summary
+        return self.model_copy(update=update)
+
     @property
     def greeting_complete(self) -> bool:
         """True once GREETING learned everything it asks for (name, interest, feeling)."""

@@ -86,3 +86,33 @@ cues:                     # identity cues we intend to show (actual state is log
   signature_gesture: true
   memory_references: true
   transition_animation: true
+
+woz:                      # Wizard-of-Oz panel server (HTTP + WebSocket, docs/SYSTEM_DESIGN.md §4.8)
+  host: 127.0.0.1         # study/demo: 0.0.0.0 so a second laptop/phone can open the panel
+  port: 8766              # panel: http://<laptop-ip>:8766/woz/?token=<WOZ_TOKEN>
+  max_panels: 3           # concurrent panels (experimenter laptop + phone + spare)
+  web_dist: ../web/dist   # built by `npm run build`; also serves /fake-robot/
+  command_timeout_s: 15   # a command without result after this is acked ok=false (still logged)
+
+session:                  # full session flow (docs/INTERACTION_FLOW.md); seconds
+  persona_pick_s: 30      # no persona chosen within this -> persona.default
+  greeting_max_turns: 6   # participant answers in GREETING before FOCUS starts anyway
+  greeting_max_s: 90
+  chat_max_exchanges: 3   # CHAT: max participant answers, then Crocodile
+  chat_max_s: 45
+  game_menu_s: 15         # no clear game choice within this -> default_game
+  default_game: quick_draw
+  game_placeholder_s: 60  # M3: games are placeholders that last this long (M4 replaces them)
+  game_loop: false        # true (demo): after a game, back to the menu until "stop"
+  return_end_s: 30        # RETURN -> END after this; null = the WoZ ends the session
+  flight_s: 0.8           # silence between Pipi jumping off the screen and the robot waking up
+  robot_connect_wait_s: 3 # a migration waits this long for a missing robot, then stays on the pet
+  thinking_delay_ms: 300  # thinking eyes if Pipi's reply takes longer than this
+  health_poll_s: 1        # body health check (WoZ state + alerts on disconnect)
+  reading_text_file: null # M6: study reading text, given to the LLM for word help in FOCUS
+
+tts_cache:                # fixed lines' speech cached on disk -> they play instantly
+  enabled: true
+  dir: ../cache/tts       # gitignored; key = hash(model, voice, text); fixed lines only
+  prewarm_timeout_s: 60   # background synthesis of all fixed lines at session start
+  prewarm_concurrency: 4

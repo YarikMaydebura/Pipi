@@ -27,6 +27,7 @@ class Persona(BaseModel):
     label: str = Field(min_length=1)
     description: str = Field(min_length=1)
     tone: str = Field(min_length=1)
+    synonyms: tuple[str, ...] = ()  # words that pick this persona by voice
 
 
 @dataclass(frozen=True)

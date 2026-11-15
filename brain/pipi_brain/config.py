@@ -50,6 +50,9 @@ PATH_FIELDS: tuple[tuple[str, str], ...] = (
     ("dialogue", "lines_file"),
     ("dialogue", "prompts_dir"),
     ("vad", "model_path"),
+    ("woz", "web_dist"),
+    ("session", "reading_text_file"),
+    ("tts_cache", "dir"),
 )
 MAX_EXTENDS_DEPTH = 3
 
@@ -185,6 +188,45 @@ class TimeoutsConfig(_Section):
     playback_margin_s: float = Field(ge=0)  # added to the audio length when waiting for playback
 
 
+class WozConfig(_Section):
+    """WoZ panel server (``woz_server.py``): HTTP for the built web app + the panel WebSocket."""
+
+    host: str  # 127.0.0.1 = this laptop only; 0.0.0.0 = LAN (then WOZ_TOKEN is required)
+    port: int = Field(ge=1024, le=65535)
+    max_panels: int = Field(ge=1, le=10)  # concurrent panel connections
+    web_dist: Path  # built web app (`npm run build`), served at /woz/ and /fake-robot/
+    command_timeout_s: float = Field(gt=0)  # ack ok=false if a command takes longer
+
+
+class SessionConfig(_Section):
+    """The full session flow (``phases/``, docs/INTERACTION_FLOW.md): limits in seconds."""
+
+    persona_pick_s: float = Field(gt=0)  # no choice within this -> persona.default
+    greeting_max_turns: int = Field(ge=1, le=20)  # participant answers before FOCUS anyway
+    greeting_max_s: float = Field(gt=0)
+    chat_max_exchanges: int = Field(ge=1, le=10)  # CHAT: participant answers, then the game
+    chat_max_s: float = Field(gt=0)
+    game_menu_s: float = Field(gt=0)  # no clear choice within this -> default_game
+    default_game: str = Field(min_length=1)  # id from games/registry.py
+    game_placeholder_s: float = Field(gt=0)  # M3 placeholder games last this long
+    game_loop: bool  # demo: GAME_CHOSEN -> GAME_MENU until the participant says stop
+    return_end_s: float | None = Field(default=None, gt=0)  # RETURN -> END; null = WoZ ends
+    flight_s: float = Field(ge=0, le=5)  # silence between jump_out and the robot waking up
+    robot_connect_wait_s: float = Field(ge=0)  # migration waits this long for the robot
+    thinking_delay_ms: int = Field(ge=0, le=5000)  # thinking eyes if a reply takes longer
+    health_poll_s: float = Field(gt=0)  # body health check interval (WoZ state + alerts)
+    reading_text_file: Path | None = None  # FOCUS word help context (study text, M6)
+
+
+class TtsCacheConfig(_Section):
+    """Fixed lines' speech cached on disk (gitignored), pre-warmed at session start."""
+
+    enabled: bool
+    dir: Path
+    prewarm_timeout_s: float = Field(gt=0)
+    prewarm_concurrency: int = Field(ge=1, le=8)
+
+
 class AppConfig(_Section):
     mode: Literal["dev", "study", "demo"]
     env_file: Path
@@ -201,6 +243,9 @@ class AppConfig(_Section):
     timeouts: TimeoutsConfig
     logging: LoggingConfig
     cues: CuesConfig
+    woz: WozConfig
+    session: SessionConfig
+    tts_cache: TtsCacheConfig
 
 
 class Secrets(_Section):

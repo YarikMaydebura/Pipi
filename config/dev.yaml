@@ -12,3 +12,11 @@ timers:
 
 logging:
   verbose: true
+
+session:                  # short timers so a whole session takes ~3 minutes
+  persona_pick_s: 15
+  greeting_max_s: 60
+  chat_max_s: 30
+  game_menu_s: 10
+  game_placeholder_s: 8
+  return_end_s: 15

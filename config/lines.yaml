@@ -18,3 +18,57 @@ lines:
     cheerful: "Still there? No rush!"
   goodbye:
     default: "Bye for now! It was nice talking to you."
+
+  # --- Session flow (M3, docs/INTERACTION_FLOW.md). {name} lines are never disk-cached. ---
+  persona_intro:
+    default: "Hi, I'm Pipi! Should I be cheerful, calm or witty? You can click one or just tell me!"
+  persona_unclear:
+    default: "Sorry, which one: cheerful, calm or witty?"
+  persona_chosen:
+    default: "Great choice!"
+    cheerful: "Yay, cheerful it is!"
+    calm: "Calm it is. Nice and easy."
+    witty: "Witty? Bold choice. I like it."
+  persona_default:
+    default: "No worries, I'll just be my usual self!"
+    cheerful: "No worries, I'll be my cheerful self!"
+  greeting_ask_name:
+    default: "So, what's your name?"
+    calm: "So, what's your name?"
+    witty: "First things first: what's your name?"
+  focus_start:
+    default: "Okay, time to read! I'll be right here. Ask me if a word is unclear!"
+    calm: "Okay, time to read. I'll be right here; just ask if a word is unclear."
+    witty: "Reading time! I'll be right here, ask me if a word looks suspicious."
+  migration_announce:
+    default: "Break time! I'm coming over!"
+    calm: "Time for a little break. I'm coming over to you."
+    witty: "Break time! Watch me jump into my robot body."
+  migration_unavailable:
+    default: "Hmm, my robot body is still asleep. Let's take our break right here on the screen!"
+  robot_wake:
+    default: "Ta-da! Hi again, {name}!"
+  robot_wake_noname:
+    default: "Ta-da! Hi again!"
+  robot_wake_plain:
+    default: "Hi again, {name}! It's me, Pipi."
+  robot_wake_plain_noname:
+    default: "Hi again! It's me, Pipi."
+  chat_transition:
+    default: "Okay, I have a challenge for you!"
+    calm: "Okay, I have a little challenge for you."
+    witty: "Okay, enough small talk. I have a challenge for you."
+  game_crocodile_placeholder:
+    default: "Let's play Crocodile! This game is still being built, so imagine my best bird impression."
+  game_menu:
+    default: "What do you want to play next? A duel, a staring contest, rock-paper-scissors, or you act and I guess?"
+  game_menu_clarify:
+    default: "Sorry, which game? A duel, staring, rock-paper-scissors, or you act?"
+  game_choice_default:
+    default: "Let's do a duel then!"
+  game_placeholder:
+    default: "Let's play {game}! This game is still being built, so let's pretend it was epic."
+  robot_goodbye:
+    default: "That was fun! Okay, back to your text. See you on the screen!"
+  return_fallback:
+    default: "I'm back on your screen! Good luck with the questions."

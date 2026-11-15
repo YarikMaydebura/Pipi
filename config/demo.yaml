@@ -10,3 +10,10 @@ robot:
 
 timers:
   break_max_s: null       # WoZ ends the break
+
+woz:
+  host: 0.0.0.0           # panel on a second device over the LAN; needs WOZ_TOKEN in .env
+
+session:
+  game_loop: true         # free game choice, loop until the participant says stop
+  return_end_s: null      # the WoZ ends the session

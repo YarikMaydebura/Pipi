@@ -23,7 +23,8 @@ Gesture = Literal[
 
 EXPRESSIONS: tuple[str, ...] = get_args(Expression)
 GESTURES: tuple[str, ...] = get_args(Gesture)
-MAX_SAY_CHARS = 400  # ~2-3 spoken sentences; longer means the model ignored the rules
+MAX_SAY_CHARS = 400
+MAX_HELP_TERM_CHARS = 80  # ~2-3 spoken sentences; longer means the model ignored the rules
 
 _CODE_FENCE = re.compile(r"^```(?:json)?\s*|\s*```$", re.IGNORECASE)
 
@@ -40,6 +41,7 @@ class DialogueTurn(BaseModel):
     gesture: Gesture = "none"
     memory_updates: MemoryUpdates = MemoryUpdates()
     needs_clarification: bool = False
+    help_term: str | None = None  # FOCUS word help: the word/phrase asked about
 
     @field_validator("say", mode="before")
     @classmethod
@@ -55,6 +57,14 @@ class DialogueTurn(BaseModel):
     @classmethod
     def _known_gesture(cls, value: Any) -> Any:
         return value if value in GESTURES else "none"
+
+    @field_validator("help_term", mode="before")
+    @classmethod
+    def _clean_help_term(cls, value: Any) -> Any:
+        if not isinstance(value, str):
+            return None
+        text = " ".join(value.split())[:MAX_HELP_TERM_CHARS]
+        return text or None
 
     @field_validator("memory_updates", mode="before")
     @classmethod

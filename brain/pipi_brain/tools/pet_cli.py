@@ -1,10 +1,12 @@
-"""Drive the desktop pet by hand (dev tool).
+"""Drive the desktop pet or the fake robot by hand (dev tool).
 
-Run: ``python -m pipi_brain.tools.pet_cli --config ../config/dev.yaml``
+Run: ``python -m pipi_brain.tools.pet_cli --config ../config/dev.yaml [--body robot]``
 
-Starts the body WebSocket server, waits for the pet (``npm run dev`` in desktop-pet/) and reads
-commands from the terminal. ``say`` uses a synthetic babble voice (no API call) unless
-``--tts`` is given, which uses the real tts-1 voice from config (costs a tiny bit of quota).
+Starts the body WebSocket server (both bodies may connect), waits for the chosen body (pet:
+``npm run dev`` in desktop-pet/; robot: http://localhost:5173/fake-robot/ from ``npm run dev``
+in web/) and reads commands from the terminal. ``say`` uses a synthetic babble voice (no API
+call) unless ``--tts`` is given, which uses the real tts-1 voice from config (a
+little quota).
 Every message and failure is logged like in a session (logs/PETCLI_<time>/events.jsonl).
 """
 
@@ -18,7 +20,6 @@ from dataclasses import dataclass
 from typing import Any, get_args
 
 from pipi_brain.bodies.base import Body, BodyResult, Entrance, Exit
-from pipi_brain.bodies.desktop_pet import DesktopPetBody
 from pipi_brain.config import ConfigError, LoadedConfig, load_config
 from pipi_brain.logging_study import LoggerError, StudyLogger
 from pipi_brain.protocol import EyeState
@@ -40,7 +41,7 @@ HELP = f"""Commands:
   caption [<text>]    show a caption; without text: hide it
   out [exit]          jump off the screen: {" | ".join(EXITS)} (default jump_out)
   in [entrance]       come back: {" | ".join(ENTRANCES)} (default jump_in)
-  status              is the pet connected?
+  status              is the body connected?
   help                this text
   quit                stop"""
 
@@ -140,7 +141,7 @@ class PetCli:
 
 
 def _tts_voice(loaded: LoadedConfig) -> Synthesize:
-    """Real tts-1 voice with timeout; falls back to babble so the tool never gets stuck."""
+    """Real TTS voice with a timeout; falls back to babble so the tool never gets stuck."""
     from pipi_brain.openai_client import create_openai_client
     from pipi_brain.speech.tts import OpenAITextToSpeech
 
@@ -162,15 +163,27 @@ def _tts_voice(loaded: LoadedConfig) -> Synthesize:
     return speak
 
 
-async def run(loaded: LoadedConfig, *, participant: str, use_tts: bool) -> None:
+BODY_CHOICES: Mapping[str, str] = {"pet": "desktop_pet", "robot": "fake_robot"}
+START_HINTS: Mapping[str, str] = {
+    "desktop_pet": "Start the pet: cd desktop-pet ; npm run dev",
+    "fake_robot": "Open the fake robot: cd web ; npm run dev -> http://localhost:5173/fake-robot/",
+}
+
+
+async def run(
+    loaded: LoadedConfig, *, participant: str, use_tts: bool, body_name: str = "desktop_pet"
+) -> None:
     from pipi_brain.voice_app import TerminalTextInput
 
     app = loaded.app
     synthesize = _tts_voice(loaded) if use_tts else babble_voice
     logger = StudyLogger(app.logging.dir, participant)
 
-    def log(event_type: str, data: Mapping[str, Any]) -> None:
-        logger.log(event_type, data, body=DesktopPetBody.name)
+    def log_for(name: str) -> Callable[[str, Mapping[str, Any]], None]:
+        def log(event_type: str, data: Mapping[str, Any]) -> None:
+            logger.log(event_type, data, body=name)
+
+        return log
 
     logger.log(
         "session_start",
@@ -178,28 +191,24 @@ async def run(loaded: LoadedConfig, *, participant: str, use_tts: bool) -> None:
             "mode": app.mode,
             "config_hash": loaded.config_hash,
             "runner": "pet_cli",
+            "body": body_name,
             "robot_side": app.pet.robot_side,
             "voice": "tts-1" if use_tts else "babble",
         },
     )
-    pet = DesktopPetBody(app.bodies, robot_side=app.pet.robot_side, log=log)
-    server = BodyServer(
-        host=app.server.host,
-        port=app.server.port,
-        bodies={"desktop_pet": pet},
-        hello_timeout_s=app.bodies.hello_timeout_s,
-        log=log,
-    )
-    cli = PetCli(pet, synthesize)
+    # Both WebSocket bodies may connect (pet + fake robot); the CLI drives one of them.
+    server = BodyServer.from_config(app, log=log_for(body_name), log_for=log_for)
+    body = server.bodies[body_name]
+    cli = PetCli(body, synthesize)
     reason = "interrupted"
     async with server:
-        print(f"Pet control on {server.url}  (log: {logger.folder})")
-        print("Start the pet: cd desktop-pet ; npm run dev     (type help for commands)")
-        if await pet.wait_connected(app.bodies.connect_wait_s):
-            print("Desktop pet connected.")
+        print(f"{body_name} control on {server.url}  (log: {logger.folder})")
+        print(f"{START_HINTS[body_name]}     (type help for commands)")
+        if await body.wait_connected(app.bodies.connect_wait_s):
+            print(f"{body_name} connected.")
         else:
-            print("No pet yet; commands will fail until it connects.")
-        text_input = TerminalTextInput("pet> ")
+            print(f"No {body_name} yet; commands will fail until it connects.")
+        text_input = TerminalTextInput(f"{body_name}> ")
         try:
             while True:
                 line = await text_input.read_line()
@@ -220,10 +229,23 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--config", required=True, help="e.g. ../config/dev.yaml")
     parser.add_argument("--participant", default="PETCLI", help="log folder name prefix")
     parser.add_argument("--tts", action="store_true", help="use the real tts-1 voice for 'say'")
+    parser.add_argument(
+        "--body",
+        choices=sorted(BODY_CHOICES),
+        default="pet",
+        help="which body to drive: the desktop pet or the fake robot web page",
+    )
     args = parser.parse_args(argv)
     try:
         loaded = load_config(args.config)
-        asyncio.run(run(loaded, participant=args.participant, use_tts=args.tts))
+        asyncio.run(
+            run(
+                loaded,
+                participant=args.participant,
+                use_tts=args.tts,
+                body_name=BODY_CHOICES[args.body],
+            )
+        )
     except (ConfigError, LoggerError, BodyServerError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 2

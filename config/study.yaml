@@ -8,3 +8,9 @@ server:
 
 robot:
   body: alpha_mini
+
+woz:
+  host: 0.0.0.0           # panel on a second device over the LAN; needs WOZ_TOKEN in .env
+
+session:
+  return_end_s: null      # the experimenter ends the session in the WoZ panel
