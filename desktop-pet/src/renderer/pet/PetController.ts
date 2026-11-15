@@ -1,5 +1,5 @@
 // Translates brain → body protocol messages into calls on the current PetView and the pet's
-// services (speech, caption bubble, migration). The WebSocket client (link/brainClient.ts)
+// services (speech, caption bubble, migration). The WebSocket client (@pipi/shared/body brainClient.ts)
 // passes every validated message to handle(); the returned result becomes the `ack`.
 // Ack timing: most messages are acked at once; `activate` / `deactivate` are acked when their
 // animation has FINISHED, and `speak` once the audio has started (speech_done comes later).
@@ -8,15 +8,13 @@
 import type { BrainToBody, EyeState, RobotSide } from '@pipi/shared';
 import type { ReactionTarget } from '../interaction/interactionController';
 import type { BrainActivity } from '../interaction/reactionPolicy';
-import type { MouthShape } from '../mouth/mouthShapes';
+import type { MouthShape } from '@pipi/shared/look';
 import type { FaceFlash, PetView } from './PetView';
+import type { HandleResult } from '@pipi/shared/body';
 
-export interface HandleResult {
-  readonly ok: boolean;
-  readonly error?: string;
-}
+export type { HandleResult };
 
-/** Speech: caption + audio + talking animation (speech/speechController.ts). */
+/** Speech: caption + audio + talking animation (@pipi/shared/body speechController.ts). */
 export interface SpeechService {
   speak(request: {
     readonly id: string;
@@ -26,7 +24,7 @@ export interface SpeechService {
   interrupt(): void;
 }
 
-/** The speech bubble (speech/speechBubble.ts). */
+/** The speech bubble (@pipi/shared/body speechBubble.ts). */
 export interface CaptionService {
   show(text: string): void;
   hide(): void;
@@ -68,6 +66,7 @@ export class PetController implements ReactionTarget {
   private cheeks = false;
   private chestPulse = false;
   private mouthOverride: MouthShape | null = null;
+  private calmHandler: ((on: boolean) => void) | null = null;
   private services: PetServices;
   private baseMotion = 'idle';
   private dozing = false;
@@ -205,7 +204,16 @@ export class PetController implements ReactionTarget {
         return this.activate(message.entrance);
       case 'deactivate':
         return this.deactivate(message.exit);
+      case 'calm':
+        // Study FOCUS phase: the interaction layer stops fidgets and keeps reactions tiny.
+        this.calmHandler?.(message.on);
+        return OK;
     }
+  }
+
+  /** Who switches calm mode when the brain sends `calm` (the interaction controller). */
+  setCalmHandler(handler: (on: boolean) => void): void {
+    this.calmHandler = handler;
   }
 
   private setMode(mode: BodyMode): void {

@@ -18,7 +18,7 @@
 //   ?fallback=1 shows the 2D fallback instead of the 3D pet;  ?calm=1 starts in calm mode
 import { EyeState } from '@pipi/shared';
 import { MOTION_NAMES } from '../motion/motions';
-import { MOUTH_SHAPES, type MouthShape } from '../mouth/mouthShapes';
+import { MOUTH_SHAPES, type MouthShape } from '@pipi/shared/look';
 import type { PetController } from '../pet/PetController';
 
 export const EYE_STATE_KEYS = '1234567890-=';

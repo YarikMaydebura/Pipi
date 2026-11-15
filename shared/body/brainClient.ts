@@ -1,15 +1,16 @@
-// WebSocket client to the brain. On every connect it sends `hello`; every message from the brain
-// is validated with parseBrainMessage, handed to `handle`, and answered with an `ack`
-// (ok or the error). If the brain is not running or goes away, it keeps reconnecting with
-// backoff — the pet keeps living on its own meanwhile.
+// WebSocket client to the brain, used by every WebSocket body (desktop pet, fake robot). On every
+// connect it sends `hello {body}`; every message from the brain is validated with
+// parseBrainMessage, handed to `handle`, and answered with an `ack` (ok or the error) once
+// `handle` resolves — so a body controls the ack timing by when it resolves. If the brain is not
+// running or goes away, it keeps reconnecting with backoff; the body keeps living meanwhile.
 import {
   makeBodyMessage,
   parseBrainMessage,
+  type BodyName,
   type BodyToBrain,
   type BrainToBody,
   type WithoutEnvelope,
-} from '@pipi/shared';
-import type { HandleResult } from '../pet/PetController';
+} from '../protocol';
 import { backoffDelay, DEFAULT_BACKOFF, type BackoffOptions } from './backoff';
 
 /** The part of the browser WebSocket the client uses (a fake implements it in tests). */
@@ -27,8 +28,16 @@ const OPEN = 1; // WebSocket.OPEN
 
 export type BrainStatus = 'connecting' | 'connected' | 'disconnected';
 
+/** What a body answers to one brain message; becomes the `ack`. */
+export interface HandleResult {
+  readonly ok: boolean;
+  readonly error?: string;
+}
+
 export interface BrainClientOptions {
   readonly url: string;
+  /** Which body this is (`hello.body`). */
+  readonly body: BodyName;
   readonly version: string;
   readonly handle: (message: BrainToBody) => Promise<HandleResult>;
   readonly createSocket?: (url: string) => SocketLike;
@@ -105,7 +114,7 @@ export class BrainClient {
     this.socket = socket;
     socket.onopen = () => {
       this.attempt = 0;
-      this.send({ type: 'hello', body: 'desktop_pet', version: this.options.version });
+      this.send({ type: 'hello', body: this.options.body, version: this.options.version });
       console.info(`[pipi] connected to the brain at ${this.options.url}`);
       this.options.onStatus?.('connected');
     };

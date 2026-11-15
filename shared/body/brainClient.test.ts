@@ -1,4 +1,4 @@
-import type { BrainToBody } from '@pipi/shared';
+import type { BodyName, BrainToBody } from '../protocol';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { backoffDelay, DEFAULT_BACKOFF } from './backoff';
 import { BrainClient, type SocketLike } from './brainClient';
@@ -30,10 +30,14 @@ class FakeSocket implements SocketLike {
   }
 }
 
-function setup(handle = vi.fn(async (_m: BrainToBody) => ({ ok: true }))) {
+function setup(
+  handle = vi.fn(async (_m: BrainToBody) => ({ ok: true })),
+  body: BodyName = 'desktop_pet',
+) {
   const sockets: FakeSocket[] = [];
   const client = new BrainClient({
     url: 'ws://127.0.0.1:8765',
+    body,
     version: '0.2.0',
     handle,
     random: () => 0.5, // no jitter
@@ -77,6 +81,13 @@ describe('BrainClient', () => {
       body: 'desktop_pet',
       version: '0.2.0',
     });
+  });
+
+  it('introduces itself as the body it was created for', () => {
+    const { client, sockets } = setup(undefined, 'fake_robot');
+    client.start();
+    sockets[0]?.open();
+    expect(sockets[0]?.sent[0]).toMatchObject({ type: 'hello', body: 'fake_robot' });
   });
 
   it('hands valid messages to the pet and acks them', async () => {

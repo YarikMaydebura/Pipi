@@ -13,14 +13,16 @@ import {
 import { createFallbackView } from './fallback/CssPetView';
 import { wirePointerInput } from './input/pointerInput';
 import { InteractionController } from './interaction/interactionController';
-import { BrainClient } from './link/brainClient';
+import {
+  BrainClient,
+  WebAudioPlayer,
+  createSpeechBubble,
+  SpeechController,
+} from '@pipi/shared/body';
 import { createStageMotion } from './migration/stageMotion';
 import { Migrator } from './migration/migrator';
 import { PetController } from './pet/PetController';
 import type { PetView } from './pet/PetView';
-import { WebAudioPlayer } from './speech/audioPlayer';
-import { createSpeechBubble } from './speech/speechBubble';
-import { SpeechController } from './speech/speechController';
 
 const START_TIMEOUT_MS = 8000;
 const PET_VERSION = '0.3.0'; // sent in `hello`; bump when the pet's behaviour changes
@@ -92,6 +94,7 @@ async function boot(): Promise<void> {
   const interaction = new InteractionController({ target: pet, now: () => performance.now() });
   interaction.setReducedMotion(reducedMotion.matches);
   interaction.setCalm(calmRequested(window.location.search));
+  pet.setCalmHandler((on) => interaction.setCalm(on)); // brain `calm` message (study FOCUS)
   pet.setActivityListener((activity, motion) => interaction.brain(activity, motion));
   reducedMotion.addEventListener('change', (event) => {
     pet.currentView.setReducedMotion(event.matches);
@@ -147,6 +150,7 @@ function connectToBrain(pet: PetController, reducedMotion: () => boolean): Brain
   pet.setServices({ speech, caption, migration });
   client = new BrainClient({
     url: bridge?.brainUrl ?? FALLBACK_BRAIN_URL,
+    body: 'desktop_pet',
     version: PET_VERSION,
     handle: (message) => pet.handle(message),
   });

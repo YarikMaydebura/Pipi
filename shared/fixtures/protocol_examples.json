@@ -56,6 +56,12 @@
       "id": "6f1c2a80-0009-4000-8000-000000000009",
       "ts": 1763100000800,
       "robot_side": "left"
+    },
+    {
+      "type": "calm",
+      "id": "b-calm-1",
+      "ts": 1700000000000,
+      "on": true
     }
   ],
   "body_to_brain": [
@@ -141,6 +147,12 @@
       "type": "body_config",
       "id": "x",
       "ts": 1
+    },
+    {
+      "type": "calm",
+      "id": "b-calm-x",
+      "ts": 1700000000000,
+      "on": "yes"
     }
   ],
   "invalid_body_to_brain": [
@@ -184,6 +196,202 @@
       "ts": 1.5,
       "body": "desktop_pet",
       "version": "0.1.0"
+    }
+  ],
+  "woz_to_brain": [
+    {
+      "type": "woz_command",
+      "id": "w-1",
+      "ts": 1700000000000,
+      "command": "goto_phase",
+      "args": {
+        "phase": "CHAT"
+      },
+      "reason": "timing"
+    },
+    {
+      "type": "woz_command",
+      "id": "w-2",
+      "ts": 1700000000000,
+      "command": "extend_focus",
+      "args": {
+        "seconds": 60
+      },
+      "reason": "participant_request",
+      "note": "wants to finish the paragraph"
+    },
+    {
+      "type": "woz_command",
+      "id": "w-3",
+      "ts": 1700000000000,
+      "command": "emergency_stop",
+      "reason": "technical_failure"
+    },
+    {
+      "type": "woz_command",
+      "id": "w-4",
+      "ts": 1700000000000,
+      "command": "switch_robot_body",
+      "args": {
+        "body": "fake"
+      },
+      "reason": "other",
+      "note": "robot battery low"
+    }
+  ],
+  "invalid_woz_to_brain": [
+    {
+      "type": "woz_command",
+      "id": "w-x1",
+      "ts": 1700000000000,
+      "command": "next_phase"
+    },
+    {
+      "type": "woz_command",
+      "id": "w-x2",
+      "ts": 1700000000000,
+      "command": "dance",
+      "reason": "demo"
+    },
+    {
+      "type": "woz_command",
+      "id": "w-x3",
+      "ts": 1700000000000,
+      "command": "pause",
+      "reason": "bored"
+    },
+    {
+      "type": "woz_command",
+      "id": "w-x4",
+      "ts": 1700000000000,
+      "command": "say",
+      "args": {
+        "line": {
+          "id": "x"
+        }
+      },
+      "reason": "timing"
+    },
+    {
+      "type": "woz_command",
+      "id": "w-x5",
+      "ts": 1700000000000,
+      "command": "pause",
+      "reason": "timing",
+      "extra": 1
+    }
+  ],
+  "brain_to_woz": [
+    {
+      "type": "state_update",
+      "id": "s-1",
+      "ts": 1700000000000,
+      "phase": "FOCUS",
+      "mode": "study",
+      "participant_id": "P03",
+      "active_body": "desktop_pet",
+      "timer": {
+        "name": "focus",
+        "remaining_s": 180.5,
+        "total_s": 240.0
+      },
+      "paused": false,
+      "memory_summary": {
+        "interest": "football"
+      },
+      "health": {
+        "desktop_pet": {
+          "connected": true
+        },
+        "fake_robot": {
+          "connected": false,
+          "last_error": "not connected"
+        }
+      }
+    },
+    {
+      "type": "state_update",
+      "id": "s-2",
+      "ts": 1700000000000,
+      "phase": "SETUP",
+      "mode": "dev"
+    },
+    {
+      "type": "turn",
+      "id": "t-1",
+      "ts": 1700000000000,
+      "speaker": "pipi",
+      "text": "Nice to meet you!",
+      "latencies": {
+        "stt_ms": 310,
+        "llm_ms": 820,
+        "tts_ms": 400,
+        "total_ms": 1530
+      }
+    },
+    {
+      "type": "turn",
+      "id": "t-2",
+      "ts": 1700000000000,
+      "speaker": "user",
+      "text": "Hi Pipi"
+    },
+    {
+      "type": "alert",
+      "id": "a-1",
+      "ts": 1700000000000,
+      "level": "warning",
+      "message": "fake_robot disconnected"
+    },
+    {
+      "type": "ack",
+      "id": "k-1",
+      "ts": 1700000000000,
+      "ref_id": "w-1",
+      "ok": true
+    }
+  ],
+  "invalid_brain_to_woz": [
+    {
+      "type": "state_update",
+      "id": "s-x1",
+      "ts": 1700000000000,
+      "phase": "LUNCH",
+      "mode": "dev"
+    },
+    {
+      "type": "state_update",
+      "id": "s-x2",
+      "ts": 1700000000000,
+      "phase": "FOCUS",
+      "mode": "dev",
+      "timer": {
+        "name": "focus",
+        "remaining_s": -1.0,
+        "total_s": 240.0
+      }
+    },
+    {
+      "type": "turn",
+      "id": "t-x1",
+      "ts": 1700000000000,
+      "speaker": "robot",
+      "text": "hi"
+    },
+    {
+      "type": "alert",
+      "id": "a-x1",
+      "ts": 1700000000000,
+      "level": "info",
+      "message": ""
+    },
+    {
+      "type": "state_update",
+      "id": "s-x3",
+      "ts": 1700000000000,
+      "phase": "END",
+      "mode": "demo",
+      "secret": "x"
     }
   ]
 }

@@ -1,7 +1,15 @@
 // The same mouth shapes as drawMouth.ts, as one SVG path (for the 2D HTML/CSS fallback).
 // Pure: returns path data in a `size` × `size` viewBox, no DOM.
-import type { MouthFrame } from './mouthFrame';
-import { BIG_SMILE, FLAT, SMALL_O, SMILE, WAVY, wavyPoints, type MouthShape } from './mouthShapes';
+import type { MouthFrame } from '@pipi/shared/look';
+import {
+  BIG_SMILE,
+  FLAT,
+  SMALL_O,
+  SMILE,
+  WAVY,
+  wavyPoints,
+  type MouthShape,
+} from '@pipi/shared/look';
 
 export interface MouthPath {
   readonly d: string; // '' = draw nothing

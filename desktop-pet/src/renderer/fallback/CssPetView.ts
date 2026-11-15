@@ -2,11 +2,10 @@
 // cheeks. Reaction faces (flashFace) work here too, including the pink "love" eyes.
 // Used when WebGL or the 3D model fails, so the pet is never blank. Looks are in style.css.
 import type { EyeState } from '@pipi/shared';
-import { clamp, type EyeLook } from '../eyes/eyeFrame';
+import { clamp, type EyeLook, computeMouthFrame, mouthForState } from '@pipi/shared/look';
 import { lookAt, type ScreenPoint } from '../motion/idle';
 import { isKnownMotion, isLoopMotion } from '../motion/motions';
-import { computeMouthFrame, mouthForState } from '../mouth/mouthFrame';
-import type { MouthShape } from '../mouth/mouthShapes';
+import type { MouthShape } from '@pipi/shared/look';
 import type { PetView } from '../pet/PetView';
 import { createFallbackMouth } from './fallbackMouth';
 

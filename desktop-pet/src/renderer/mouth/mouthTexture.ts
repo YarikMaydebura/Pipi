@@ -1,8 +1,7 @@
 // Live mouth texture for the 3D model: replaces the glb's "MouthScreen" material on the
 // "Mouth" mesh with a canvas-backed material that glows exactly like the eyes.
 import { CanvasTexture, MeshStandardMaterial, SRGBColorSpace } from 'three';
-import { drawMouth } from './drawMouth';
-import { sameMouthFrame, type MouthFrame } from './mouthFrame';
+import { drawMouth, sameMouthFrame, type MouthFrame } from '@pipi/shared/look';
 
 /** The mouth is small on screen, so a smaller canvas than the eyes is plenty. */
 export const MOUTH_TEXTURE_SIZE = 256;

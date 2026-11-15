@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { WindowCommand } from '../../preload/bridge';
-import { applySpeechLevel } from '../eyes/speechGlow';
-import { computeEyeFrame } from '../eyes/eyeFrame';
+import { applySpeechLevel, computeEyeFrame } from '@pipi/shared/look';
 import { MOTIONS } from '../motion/motions';
 import { Migrator, type WindowControl } from './migrator';
 import { enterKeyframes, leaveKeyframes, type StageMotion } from './stageMotion';

@@ -1,7 +1,7 @@
 // Decides which eye state is shown right now: the state the brain asked for, an optional
 // short-lived override (e.g. happy after a poke), and automatic blinking.
-import type { EyeState } from '@pipi/shared';
-import { BlinkScheduler, type RandomSource } from '../motion/blink';
+import type { EyeState } from '../protocol';
+import { BlinkScheduler, type RandomSource } from './blink';
 import { canAutoBlink, computeEyeFrame, type EyeFrame, type EyeLook } from './eyeFrame';
 
 interface Override {

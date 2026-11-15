@@ -12,7 +12,7 @@ import {
   MOUTH_CYCLE_KEY,
   nextMouthOverride,
 } from './debugKeys';
-import { MOUTH_SHAPES } from '../mouth/mouthShapes';
+import { MOUTH_SHAPES } from '@pipi/shared/look';
 import { isKnownMotion, isLoopMotion } from '../motion/motions';
 import { GLB_CLIPS, LOOPING_CLIPS } from '../scene/partNames';
 

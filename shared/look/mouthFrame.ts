@@ -1,7 +1,7 @@
 // Pure mouth model: which mouth Pipi shows for an eye state, and how speech moves it.
 // No DOM, no three.js. Design rule: the default face is friendly and happy, never neutral or
 // sad, so even "sad" and "determined" keep a kind mouth.
-import { clamp, type EyeLook } from '../eyes/eyeFrame';
+import { clamp, type EyeLook } from './eyeFrame';
 import { MOUTH_GLOW, type MouthShape } from './mouthShapes';
 
 /** A drawn mouth shape, or 'off' (screen off: nothing glows). */

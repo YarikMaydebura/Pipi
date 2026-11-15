@@ -2,8 +2,7 @@
 // EyeR (EyeR's UVs are mirrored). At runtime each eye gets its own copy of that material and
 // its own canvas, so horizontal gaze can be flipped for EyeR and both eyes look the same way.
 import { CanvasTexture, MeshStandardMaterial, SRGBColorSpace } from 'three';
-import { drawEye } from './drawEyes';
-import { mirrorForRightEye, type EyeFrame } from './eyeFrame';
+import { drawEye, mirrorForRightEye, type EyeFrame } from '@pipi/shared/look';
 
 export const EYE_TEXTURE_SIZE = 512;
 

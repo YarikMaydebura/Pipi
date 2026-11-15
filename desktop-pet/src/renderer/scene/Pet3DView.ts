@@ -3,14 +3,12 @@
 // 2D fallback — the pet must never go blank.
 import { Mesh, Raycaster, Vector2, Vector3, type Material } from 'three';
 import type { EyeState } from '@pipi/shared';
-import { EyeController } from '../eyes/eyeController';
+import { EyeController, clamp, applySpeechLevel } from '@pipi/shared/look';
 import { EyeTextures } from '../eyes/eyeTextures';
-import { clamp } from '../eyes/eyeFrame';
-import { applySpeechLevel } from '../eyes/speechGlow';
 import { idlePose, lookAt, NO_LOOK, type LookTarget, type ScreenPoint } from '../motion/idle';
 import { MotionPlayer } from '../motion/motions';
 import { MouthController } from '../mouth/mouthController';
-import type { MouthShape } from '../mouth/mouthShapes';
+import type { MouthShape } from '@pipi/shared/look';
 import { MouthTexture } from '../mouth/mouthTexture';
 import { addPoses, damp, dampTravel, pose, ZERO_POSE } from '../motion/pose';
 import type { FaceFlash, PetView } from '../pet/PetView';

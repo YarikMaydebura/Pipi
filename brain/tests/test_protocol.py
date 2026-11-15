@@ -16,12 +16,16 @@ from pydantic import ValidationError
 from pipi_brain.protocol import (
     BODY_TO_BRAIN,
     BRAIN_TO_BODY,
+    BRAIN_TO_WOZ,
     BodyToBrain,
     BrainToBody,
+    BrainToWoz,
     Hello,
     Speak,
+    WozCommand,
     encode,
     parse_body_message,
+    parse_woz_message,
 )
 
 from .conftest import PROTOCOL_FIXTURE
@@ -66,9 +70,44 @@ def test_invalid_body_to_brain_examples_are_rejected(example: dict[str, Any]) ->
         BODY_TO_BRAIN.validate_json(json.dumps(example))
 
 
+@pytest.mark.parametrize("example", EXAMPLES["woz_to_brain"], ids=_ids(EXAMPLES["woz_to_brain"]))
+def test_woz_to_brain_examples_parse_and_round_trip(example: dict[str, Any]) -> None:
+    message = parse_woz_message(json.dumps(example))
+    assert message.model_dump(mode="json", exclude_unset=True) == example
+
+
+@pytest.mark.parametrize("example", EXAMPLES["brain_to_woz"], ids=_ids(EXAMPLES["brain_to_woz"]))
+def test_brain_to_woz_examples_parse_and_round_trip(example: dict[str, Any]) -> None:
+    message = BRAIN_TO_WOZ.validate_json(json.dumps(example))
+    assert message.model_dump(mode="json", exclude_unset=True) == example
+
+
+@pytest.mark.parametrize(
+    "example", EXAMPLES["invalid_woz_to_brain"], ids=_ids(EXAMPLES["invalid_woz_to_brain"])
+)
+def test_invalid_woz_to_brain_examples_are_rejected(example: dict[str, Any]) -> None:
+    with pytest.raises(ValidationError):
+        parse_woz_message(json.dumps(example))
+
+
+@pytest.mark.parametrize(
+    "example", EXAMPLES["invalid_brain_to_woz"], ids=_ids(EXAMPLES["invalid_brain_to_woz"])
+)
+def test_invalid_brain_to_woz_examples_are_rejected(example: dict[str, Any]) -> None:
+    with pytest.raises(ValidationError):
+        BRAIN_TO_WOZ.validate_json(json.dumps(example))
+
+
+def test_woz_command_args_default_to_empty() -> None:
+    command = WozCommand(command="pause", reason="timing")
+    assert command.args == {} and command.note is None
+
+
 def test_fixture_covers_every_message_type() -> None:
     assert {e["type"] for e in EXAMPLES["brain_to_body"]} == _message_types(BrainToBody)
     assert {e["type"] for e in EXAMPLES["body_to_brain"]} == _message_types(BodyToBrain)
+    assert {e["type"] for e in EXAMPLES["brain_to_woz"]} == _message_types(BrainToWoz)
+    assert {e["type"] for e in EXAMPLES["woz_to_brain"]} == {"woz_command"}
 
 
 def test_new_message_gets_id_and_timestamp() -> None:

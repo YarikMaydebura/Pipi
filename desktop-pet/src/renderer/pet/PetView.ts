@@ -1,8 +1,7 @@
 // What any on-screen Pipi (3D or the 2D fallback) can do. PetController talks only to this.
 import type { EyeState } from '@pipi/shared';
-import type { EyeLook } from '../eyes/eyeFrame';
+import type { EyeLook, MouthShape } from '@pipi/shared/look';
 import type { ScreenPoint } from '../motion/idle';
-import type { MouthShape } from '../mouth/mouthShapes';
 
 /**
  * A short-lived face for a reaction (poke, shy, love, …). It overrides the eyes / mouth /

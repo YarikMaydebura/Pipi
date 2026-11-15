@@ -2,12 +2,14 @@
   "name": "@pipi/shared",
   "version": "0.1.0",
   "private": true,
-  "description": "Message types shared by the brain (mirrored in Python) and the TypeScript frontends",
+  "description": "Code shared by the TypeScript frontends: protocol (mirrored in Python), Pipi's face drawing, and the body runtime (brain link + speech)",
   "type": "module",
   "main": "./protocol.ts",
   "types": "./protocol.ts",
   "exports": {
-    ".": "./protocol.ts"
+    ".": "./protocol.ts",
+    "./look": "./look/index.ts",
+    "./body": "./body/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p .",

@@ -3,7 +3,7 @@
 //
 // Style: Pipi's eyes are glowing warm-teal rounded rectangles with a white highlight, shown on
 // a dark face screen. One square image describes ONE eye; see drawEyes.ts for the layout.
-import type { EyeState } from '@pipi/shared';
+import type { EyeState } from '../protocol';
 
 /**
  * Eye looks only the pet uses for its own reactions (not part of the protocol `EyeState`):

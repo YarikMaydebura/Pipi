@@ -4,5 +4,5 @@
     "lib": ["ES2022", "DOM"],
     "types": ["node"]
   },
-  "include": ["*.ts", "fixtures/*.json"]
+  "include": ["*.ts", "look/**/*.ts", "body/**/*.ts", "testing/**/*.ts", "fixtures/*.json"]
 }

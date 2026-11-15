@@ -78,6 +78,26 @@ describe('PetController', () => {
     expect(view.log).toEqual(['eyes:happy']);
   });
 
+  it('passes the brain calm message to the calm handler and acks it', async () => {
+    const pet = new PetController(fakeView());
+    const seen: boolean[] = [];
+    pet.setCalmHandler((on) => seen.push(on));
+    const on = await pet.handle({ type: 'calm', id: 'c1', ts: 1, on: true });
+    await pet.handle({ type: 'calm', id: 'c2', ts: 2, on: false });
+    expect(on.ok).toBe(true);
+    expect(seen).toEqual([true, false]);
+  });
+
+  it('acks calm even before a handler is attached', async () => {
+    const result = await new PetController(fakeView()).handle({
+      type: 'calm',
+      id: 'c',
+      ts: 1,
+      on: true,
+    });
+    expect(result.ok).toBe(true);
+  });
+
   it('acks unknown motions with an error', async () => {
     const pet = new PetController(fakeView());
     expect((await pet.handle({ type: 'motion', name: 'nod', ...envelope })).ok).toBe(true);

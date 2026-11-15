@@ -18,14 +18,32 @@ export interface AudioPlayer {
 }
 
 const ANALYSER_SIZE = 1024; // ~21 ms at 48 kHz: one animation frame of audio
+/**
+ * A browser tab may only start audio after the user clicked it (autoplay policy); until then
+ * resume() stays pending. Give up after this long so `speak` is refused quickly and the brain
+ * plays the line on the laptop speaker instead of waiting.
+ */
+export const RESUME_TIMEOUT_MS = 800;
 
 export class WebAudioPlayer implements AudioPlayer {
   private context: AudioContext | null = null;
 
+  /** True once audio may play (always in Electron; after a click/key press in a browser tab). */
+  get unlocked(): boolean {
+    return this.context?.state === 'running';
+  }
+
+  /** Call from a click / key handler: creates and resumes the audio context. */
+  async unlock(): Promise<boolean> {
+    this.context ??= new AudioContext();
+    if (this.context.state === 'suspended') await this.context.resume();
+    return this.unlocked;
+  }
+
   async play(audioB64: string): Promise<Playback> {
     this.context ??= new AudioContext();
     const context = this.context;
-    if (context.state === 'suspended') await context.resume();
+    if (context.state === 'suspended') await resumeWithin(context, RESUME_TIMEOUT_MS);
     const buffer = await context.decodeAudioData(base64ToArrayBuffer(audioB64));
 
     const source = context.createBufferSource();
@@ -60,5 +78,20 @@ export class WebAudioPlayer implements AudioPlayer {
         }
       },
     };
+  }
+}
+
+async function resumeWithin(context: AudioContext, ms: number): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error('audio is blocked until the page is clicked once')),
+      ms,
+    );
+  });
+  try {
+    await Promise.race([context.resume(), timeout]);
+  } finally {
+    clearTimeout(timer);
   }
 }

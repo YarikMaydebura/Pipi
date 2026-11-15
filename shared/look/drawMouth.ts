@@ -2,8 +2,8 @@
 // line with the same colours and glow as the eyes, on a transparent background.
 // Image contract (shared with the Blender model): one square image fills the "Mouth" mesh,
 // UVs cover the full 0–1 square (glTF V: v = 0 is the top), not mirrored.
-import { PALETTES } from '../eyes/eyeFrame';
-import { withAlpha } from '../eyes/drawEyes';
+import { PALETTES } from './eyeFrame';
+import { withAlpha } from './drawEyes';
 import type { MouthFrame } from './mouthFrame';
 import {
   BIG_SMILE,

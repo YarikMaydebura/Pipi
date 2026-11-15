@@ -1,8 +1,6 @@
 // The 2D fallback's mouth: one inline SVG path (shapes from mouth/mouthSvg.ts) with the eyes'
 // teal gradient. Built with DOM calls only (no innerHTML). Looks are in style.css.
-import { PALETTES } from '../eyes/eyeFrame';
-import { sameMouthFrame, type MouthFrame } from '../mouth/mouthFrame';
-import { GRADIENT_BAND } from '../mouth/mouthShapes';
+import { PALETTES, sameMouthFrame, type MouthFrame, GRADIENT_BAND } from '@pipi/shared/look';
 import { mouthSvgPath } from '../mouth/mouthSvg';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';

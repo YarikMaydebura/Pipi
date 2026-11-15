@@ -1,4 +1,4 @@
-import { EyeState } from '@pipi/shared';
+import { EyeState } from '../protocol';
 import { describe, expect, it } from 'vitest';
 import {
   canAutoBlink,

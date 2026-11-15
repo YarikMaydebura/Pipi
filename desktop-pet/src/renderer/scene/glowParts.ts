@@ -2,7 +2,7 @@
 // light (pulses while speaking) and the antenna sprout (always a faint glow). Missing parts are
 // simply skipped.
 import { Mesh, MeshStandardMaterial, type Material, type Object3D } from 'three';
-import type { EyeLook } from '../eyes/eyeFrame';
+import type { EyeLook } from '@pipi/shared/look';
 import { damp } from '../motion/pose';
 import { GLOW_PARTS, namesMatch } from './partNames';
 

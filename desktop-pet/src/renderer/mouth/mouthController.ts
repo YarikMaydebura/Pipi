@@ -1,9 +1,8 @@
 // Decides which mouth is visible: a debug override (key `o`) wins, then a reaction's mouth
 // flash (e.g. small_o when poked), then a short big smile after a happy motion (celebrate, …),
 // otherwise the mouth that goes with the eye state.
-import type { EyeLook } from '../eyes/eyeFrame';
-import { computeMouthFrame, mouthForState, type MouthFrame } from './mouthFrame';
-import type { MouthShape } from './mouthShapes';
+import type { EyeLook, MouthShape } from '@pipi/shared/look';
+import { computeMouthFrame, mouthForState, type MouthFrame } from '@pipi/shared/look';
 
 /** Motions that make Pipi grin while they play. */
 export const GRIN_MOTIONS: readonly string[] = [

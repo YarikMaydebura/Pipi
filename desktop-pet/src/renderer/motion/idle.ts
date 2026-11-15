@@ -1,6 +1,6 @@
 // Idle life (breathing, a gentle sway) and turning the head toward the cursor.
 import { pose, ZERO_POSE, type Pose } from './pose';
-import { clamp } from '../eyes/eyeFrame';
+import { clamp } from '@pipi/shared/look';
 
 const BREATH_PERIOD_S = 3.4;
 const SWAY_PERIOD_S = 7.3;

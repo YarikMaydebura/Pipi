@@ -72,7 +72,8 @@ class Deactivate(Envelope):
 class Speak(Envelope):
     type: Literal["speak"] = "speak"
     text: str
-    # base64 of a complete WAV file (16-bit PCM mono; 24 kHz from tts-1); absent = captions only
+    # base64 of a complete WAV file (16-bit PCM mono, 24 kHz from the TTS model);
+    # absent = captions only
     audio_b64: str | None = None
     expression: Expression = "idle"
 
@@ -99,8 +100,15 @@ class BodyConfig(Envelope):
     robot_side: RobotSide  # screen edge facing the robot: Pipi jumps off / lands on this side
 
 
+class Calm(Envelope):
+    """Calm mode on/off: during FOCUS the pet stays quiet (no fidgets, tiny reactions only)."""
+
+    type: Literal["calm"] = "calm"
+    on: bool
+
+
 BrainToBody = Annotated[
-    Activate | Deactivate | Speak | Eyes | Motion | Caption | BodyConfig,
+    Activate | Deactivate | Speak | Eyes | Motion | Caption | BodyConfig | Calm,
     Field(discriminator="type"),
 ]
 
@@ -138,8 +146,126 @@ BodyToBrain = Annotated[
 ]
 
 
+# --- WoZ <-> brain (experimenter panel, docs/INTERACTION_FLOW.md §4) ------------------------
+
+Phase = Literal[
+    "SETUP",
+    "PERSONA_PICK",
+    "GREETING",
+    "FOCUS",
+    "MIGRATE_OUT",
+    "ROBOT_WAKE",
+    "CHAT",
+    "GAME_CROCODILE",
+    "GAME_MENU",
+    "GAME_CHOSEN",
+    "ROBOT_GOODBYE",
+    "MIGRATE_IN",
+    "RETURN",
+    "END",
+]
+
+WozCommandName = Literal[
+    "start_session",
+    "next_phase",
+    "goto_phase",
+    "extend_focus",
+    "trigger_migration_out",
+    "trigger_migration_in",
+    "say",
+    "say_text",
+    "start_game",
+    "end_game",
+    "switch_robot_body",
+    "set_eyes",
+    "play_motion",
+    "pause",
+    "resume",
+    "emergency_stop",
+    "end_session",
+]
+
+WozReason = Literal[
+    "technical_failure",
+    "participant_confused",
+    "timing",
+    "participant_request",
+    "demo",
+    "other",
+]
+
+ActiveBody = Literal["desktop_pet", "fake_robot", "alpha_mini"]
+
+
+class WozCommand(Envelope):
+    """Every experimenter action, always with a reason (logged for the study)."""
+
+    type: Literal["woz_command"] = "woz_command"
+    command: WozCommandName
+    # command arguments, e.g. {"phase": "CHAT"}, {"seconds": 60}; validated per command by the brain
+    args: dict[str, str | int | float | bool] = Field(default_factory=dict)
+    reason: WozReason
+    note: str | None = None  # free text, required by the panel when reason == "other"
+
+
+class Strict(BaseModel):
+    """Nested payload objects: same strictness as the messages."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+
+class TimerInfo(Strict):
+    name: str = Field(min_length=1)  # e.g. "focus", "break"
+    remaining_s: float = Field(ge=0)
+    total_s: float = Field(ge=0)
+
+
+class BodyHealth(Strict):
+    connected: bool
+    last_error: str | None = None
+
+
+class TurnLatencies(Strict):
+    stt_ms: int | None = Field(default=None, ge=0)
+    llm_ms: int | None = Field(default=None, ge=0)
+    tts_ms: int | None = Field(default=None, ge=0)
+    total_ms: int | None = Field(default=None, ge=0)
+
+
+class StateUpdate(Envelope):
+    """Sent to the WoZ panel on every change (and as the first message after it connects)."""
+
+    type: Literal["state_update"] = "state_update"
+    phase: Phase
+    mode: Literal["dev", "study", "demo"]
+    participant_id: str | None = None
+    active_body: ActiveBody | None = None
+    timer: TimerInfo | None = None
+    paused: bool = False
+    memory_summary: dict[str, str] = Field(default_factory=dict)
+    health: dict[str, BodyHealth] = Field(default_factory=dict)  # body name -> health
+
+
+class Turn(Envelope):
+    type: Literal["turn"] = "turn"
+    speaker: Literal["user", "pipi"]
+    text: str
+    latencies: TurnLatencies | None = None
+
+
+class Alert(Envelope):
+    type: Literal["alert"] = "alert"
+    level: Literal["info", "warning", "error"]
+    message: str = Field(min_length=1)
+
+
+BrainToWoz = Annotated[StateUpdate | Turn | Alert | Ack, Field(discriminator="type")]
+WozToBrain = WozCommand
+
+
 BRAIN_TO_BODY: TypeAdapter[BrainToBody] = TypeAdapter(BrainToBody)
 BODY_TO_BRAIN: TypeAdapter[BodyToBrain] = TypeAdapter(BodyToBrain)
+BRAIN_TO_WOZ: TypeAdapter[BrainToWoz] = TypeAdapter(BrainToWoz)
 
 
 def parse_body_message(raw: str | bytes) -> BodyToBrain:
@@ -147,6 +273,11 @@ def parse_body_message(raw: str | bytes) -> BodyToBrain:
     return BODY_TO_BRAIN.validate_json(raw)
 
 
-def encode(message: BrainToBody | BodyToBrain) -> str:
+def parse_woz_message(raw: str | bytes) -> WozToBrain:
+    """Parse and validate a JSON message sent by the WoZ panel. Raises pydantic.ValidationError."""
+    return WozCommand.model_validate_json(raw)
+
+
+def encode(message: BrainToBody | BodyToBrain | BrainToWoz | WozToBrain) -> str:
     """Serialise a message to JSON for sending over the WebSocket."""
     return message.model_dump_json()
