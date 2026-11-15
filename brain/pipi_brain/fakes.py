@@ -8,13 +8,16 @@ Scripted answers may be values or exceptions; an exception is raised instead of 
 from __future__ import annotations
 
 import asyncio
+import heapq
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field
+from typing import Literal
 
 import numpy as np
 
 from pipi_brain.bodies.base import NOT_CONNECTED, BodyResult, Entrance, Exit, SpeakResult
 from pipi_brain.dialogue.prompts import ChatMessage
+from pipi_brain.phases.inputs import TypedLine
 from pipi_brain.protocol import Expression, EyeState
 from pipi_brain.speech.base import (
     AudioFrame,
@@ -222,5 +225,92 @@ class FakeBody:
         duration = round(audio.duration_s * 1000) if audio is not None else 0
         return SpeakResult(delivered=True, finished=True, duration_ms=duration)
 
+    async def set_calm(self, on: bool) -> BodyResult:
+        return self._result("calm", on)
+
     def health(self) -> str:
         return "connected (fake)" if self.connected else NOT_CONNECTED
+
+
+class FakeClock:
+    """Virtual time for session tests: ``sleep`` waits until the clock passes its deadline.
+
+    ``autojump()`` (run as a task) moves time straight to the next deadline whenever every
+    other task is idle, so a 4-minute timer takes milliseconds and always behaves the same.
+    ``advance(s)`` moves time by hand instead.
+    """
+
+    def __init__(self, start: float = 1000.0, idle_yields: int = 200) -> None:
+        self._now = start
+        self._idle_yields = idle_yields
+        self._waiters: list[tuple[float, int, asyncio.Future[None]]] = []
+        self._seq = 0
+
+    def now(self) -> float:
+        return self._now
+
+    async def sleep(self, seconds: float) -> None:
+        if seconds <= 0:
+            await asyncio.sleep(0)
+            return
+        future: asyncio.Future[None] = asyncio.get_running_loop().create_future()
+        self._seq += 1
+        heapq.heappush(self._waiters, (self._now + seconds, self._seq, future))
+        await future
+
+    def _wake_next(self, until: float | None = None) -> bool:
+        while self._waiters and self._waiters[0][2].done():
+            heapq.heappop(self._waiters)  # cancelled sleeps
+        if not self._waiters or (until is not None and self._waiters[0][0] > until):
+            return False
+        deadline, _, future = heapq.heappop(self._waiters)
+        self._now = max(self._now, deadline)
+        future.set_result(None)
+        return True
+
+    async def _settle(self) -> None:
+        for _ in range(self._idle_yields):
+            await asyncio.sleep(0)
+
+    async def advance(self, seconds: float) -> None:
+        target = self._now + seconds
+        await self._settle()
+        while self._wake_next(until=target):
+            await self._settle()
+        self._now = max(self._now, target)
+        await self._settle()
+
+    async def autojump(self) -> None:
+        while True:
+            await self._settle()
+            self._wake_next()
+
+
+@dataclass
+class FakeUserInput:
+    """What the participant says in a session test, one item per listening turn.
+
+    Items: text (typed line, answered at once), an ``Utterance`` (goes through STT),
+    ``(text, delay_s)`` (answer after a virtual delay) or ``None`` (stays silent: this
+    listening turn only ends by a timeout). When the script runs out, the participant is silent.
+    """
+
+    script: list[object] = field(default_factory=list)
+    clock: FakeClock | None = None
+    mode: Literal["voice", "typed"] = "typed"
+    hearing: bool = False
+    asked: int = 0
+
+    async def next_input(self) -> object:
+        self.asked += 1
+        item = self.script.pop(0) if self.script else None
+        if item is None:
+            await asyncio.Event().wait()  # silent until cancelled
+        if isinstance(item, tuple):
+            text, delay_s = item
+            if self.clock is not None:
+                await self.clock.sleep(float(delay_s))
+            item = text
+        if isinstance(item, str):
+            return TypedLine(item)
+        return item

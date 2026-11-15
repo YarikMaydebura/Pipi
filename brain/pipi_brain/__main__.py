@@ -7,7 +7,8 @@
   desktop-pet/); without a pet the terminal + laptop speaker are used.
 - ``--list-audio-devices``: print microphones/speakers (for ``audio.input_device``).
 
-The server and the session state machine are added in later milestones (docs/ROADMAP.md).
+- ``--session`` (M3): the full study session (phases, pet + fake robot, migration); add
+  ``--typed`` to type. Experimenter commands: ``/help`` in the terminal (or the WoZ panel).
 """
 
 from __future__ import annotations
@@ -63,7 +64,17 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
         "--voice-loop", action="store_true", help="Talk to Pipi in the terminal (M1)."
     )
     parser.add_argument(
-        "--typed", action="store_true", help="With --voice-loop: type instead of speaking."
+        "--session", action="store_true", help="Run the full session (M3, see session_app.py)."
+    )
+    parser.add_argument(
+        "--typed",
+        action="store_true",
+        help="With --voice-loop / --session: type instead of speaking.",
+    )
+    parser.add_argument(
+        "--woz",
+        action="store_true",
+        help="With --session: serve the WoZ panel and wait for the experimenter to start.",
     )
     parser.add_argument(
         "--body",
@@ -101,8 +112,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             "Warning: OPENAI_API_KEY is missing. Copy .env.example to .env and fill it in.",
             file=sys.stderr,
         )
-        if args.voice_loop:
+        if args.voice_loop or args.session:
             return EXIT_MISSING_KEY
+    if args.session:
+        return _run_session(loaded, args)
     if not args.voice_loop:
         return EXIT_OK
     return _run_voice_loop(loaded, args)
@@ -117,6 +130,29 @@ def _list_audio_devices() -> int:
     except MicrophoneError as exc:
         print(f"Audio error: {exc}", file=sys.stderr)
         return EXIT_AUDIO_ERROR
+    return EXIT_OK
+
+
+def _run_session(loaded: LoadedConfig, args: argparse.Namespace) -> int:
+    from pipi_brain.session_app import SessionAppOptions, run_session
+
+    options = SessionAppOptions(
+        participant_id=args.participant, persona_id=args.persona, typed_input=args.typed
+    )
+    woz_factory = None
+    if args.woz:
+        import functools
+
+        from pipi_brain.woz_server import serve_woz
+
+        woz_factory = functools.partial(serve_woz, loaded=loaded)
+    try:
+        asyncio.run(run_session(loaded, options, woz_server_factory=woz_factory))
+    except KeyboardInterrupt:
+        print("\nStopped.")
+    except (ConfigError, LoggerError) as exc:
+        print(f"Config error: {exc}", file=sys.stderr)
+        return EXIT_CONFIG_ERROR
     return EXIT_OK
 
 
