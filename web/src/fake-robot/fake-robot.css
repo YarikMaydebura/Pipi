@@ -1,0 +1,252 @@
+/* Fake robot page: a dim study room, warm desk lamp, the robot centre stage. Built to read on a
+   projector: white robot on a deep slate-teal wall, big captions, quiet HUD. */
+:root {
+  --wall-top: #24363b;
+  --wall-bottom: #0e1517;
+  --lamp: rgba(255, 214, 160, 0.22);
+  --teal: #3fe0c5;
+  --teal-deep: #17a58f;
+  --coral: #ff8a7a;
+  --ink: #12201f;
+  --paper: #fbfaf6;
+  --hud-text: rgba(230, 244, 241, 0.72);
+  --hud-bg: rgba(10, 18, 20, 0.55);
+  --font-ui: ui-rounded, 'SF Pro Rounded', 'Nunito', 'Segoe UI Variable', system-ui, sans-serif;
+  --caption-size: clamp(1.25rem, 0.9rem + 1.6vw, 2.4rem);
+  --space-edge: clamp(12px, 2vw, 28px);
+  --ease-pop: cubic-bezier(0.18, 1.3, 0.4, 1);
+  --duration-pop: 320ms;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+  background: var(--wall-bottom);
+  color: var(--paper);
+  font-family: var(--font-ui);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The wall: a lamp glow upper left, darker towards the edges. */
+.room {
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 55% 60% at 22% 18%, var(--lamp), transparent 70%),
+    radial-gradient(ellipse 80% 70% at 50% 40%, rgba(63, 224, 197, 0.06), transparent 70%),
+    linear-gradient(180deg, var(--wall-top) 0%, var(--wall-bottom) 100%);
+}
+
+.robot-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* --- caption: Pipi's words above the robot ----------------------------------------------- */
+.caption {
+  position: absolute;
+  top: clamp(12px, 3vh, 40px);
+  left: 50%;
+  width: min(40rem, calc(100% - 32px));
+  padding: 0.9em 1.3em 1em;
+  border-radius: 1.1em;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: var(--caption-size);
+  line-height: 1.3;
+  box-shadow:
+    0 0.6em 1.8em rgba(0, 0, 0, 0.35),
+    0 0 0 3px rgba(63, 224, 197, 0.55);
+  transform: translate(-50%, -0.4em) scale(0.96);
+  opacity: 0;
+  transition:
+    opacity var(--duration-pop) ease,
+    transform var(--duration-pop) var(--ease-pop);
+  pointer-events: none;
+}
+
+.caption[data-visible='true'] {
+  opacity: 1;
+  transform: translate(-50%, 0) scale(1);
+}
+
+/* The bubble's tail points down at the robot. */
+.caption::after {
+  content: '';
+  position: absolute;
+  bottom: -0.55em;
+  left: 50%;
+  width: 1.1em;
+  height: 1.1em;
+  background: var(--paper);
+  transform: translateX(-50%) rotate(45deg);
+  border-radius: 0.2em;
+  box-shadow: 3px 3px 0 0 rgba(63, 224, 197, 0.55);
+}
+
+.caption-name {
+  display: inline-block;
+  margin-bottom: 0.25em;
+  padding: 0.1em 0.6em;
+  border-radius: 999px;
+  background: var(--teal);
+  color: var(--ink);
+  font-size: 0.5em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.caption-text {
+  margin: 0;
+  font-weight: 600;
+}
+
+/* --- HUD: model label, sound hint, brain status ------------------------------------------- */
+.hud {
+  position: absolute;
+  inset: auto var(--space-edge) var(--space-edge);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.hud p {
+  margin: 0;
+}
+
+.model-label {
+  padding: 0.35em 0.8em;
+  border-radius: 0.5em;
+  background: var(--hud-bg);
+  color: var(--hud-text);
+  font-size: clamp(0.75rem, 0.65rem + 0.4vw, 1rem);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  backdrop-filter: blur(6px);
+}
+
+.sound-hint {
+  padding: 0.45em 1em;
+  border-radius: 999px;
+  background: var(--coral);
+  color: var(--ink);
+  font-weight: 700;
+  font-size: clamp(0.8rem, 0.7rem + 0.4vw, 1.05rem);
+  animation: hint-breathe 2.4s ease-in-out infinite;
+}
+
+.brain-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0.3em 0.75em;
+  border-radius: 999px;
+  background: var(--hud-bg);
+  color: var(--hud-text);
+  font-size: 0.8rem;
+  backdrop-filter: blur(6px);
+  transition: opacity 600ms ease;
+}
+
+/* Connected: fade almost out of the way (it is a demo, not a dashboard). */
+.brain-status[data-state='connected'] {
+  opacity: 0.35;
+}
+
+.brain-dot {
+  width: 0.6em;
+  height: 0.6em;
+  border-radius: 50%;
+  background: #f5b748;
+}
+
+.brain-status[data-state='connected'] .brain-dot {
+  background: var(--teal);
+}
+
+.brain-status[data-state='disconnected'] .brain-dot {
+  background: var(--coral);
+}
+
+/* --- 2D fallback face ---------------------------------------------------------------------- */
+.flat-robot {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+.flat-robot[hidden] {
+  display: none;
+}
+
+.flat-face {
+  display: flex;
+  gap: 6vmin;
+  padding: 8vmin 10vmin;
+  border-radius: 40% / 50%;
+  background: radial-gradient(circle at 50% 40%, #182226, #050809);
+  box-shadow:
+    0 0 0 2.2vmin #eef1f2,
+    0 3vmin 6vmin rgba(0, 0, 0, 0.5);
+  transition: filter 1.2s ease;
+}
+
+.flat-robot[data-base='sleep'] .flat-face {
+  filter: brightness(0.55);
+}
+
+.flat-eye {
+  width: 22vmin;
+  height: 22vmin;
+  border-radius: 50%;
+  background: #080d0f;
+}
+
+@keyframes hint-breathe {
+  50% {
+    transform: scale(1.04);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .caption,
+  .brain-status,
+  .flat-face {
+    transition: none;
+  }
+
+  .sound-hint {
+    animation: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .hud {
+    flex-wrap: wrap;
+  }
+}

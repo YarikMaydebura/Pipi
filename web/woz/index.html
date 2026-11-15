@@ -2,15 +2,107 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Pipi WoZ panel</title>
-    <link rel="stylesheet" href="/src/common/base.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="theme-color" content="#0f1417" />
+    <title>Pipi WoZ</title>
   </head>
   <body>
-    <main class="page" aria-labelledby="title">
-      <h1 id="title">Wizard-of-Oz panel</h1>
-      <p class="muted">Skeleton (M0). Live state, transcript and controls arrive in M3.</p>
-      <p id="status" class="status">starting…</p>
+    <header class="console" aria-label="Session status">
+      <div class="console-main">
+        <section class="readout" aria-labelledby="phase-label">
+          <p class="eyebrow" id="phase-label">Phase</p>
+          <h1 id="phase" class="phase">—</h1>
+          <p id="paused" class="paused" hidden>Paused</p>
+        </section>
+        <section id="timer" class="timer" aria-label="Timer" hidden>
+          <p class="eyebrow" id="timer-name">Timer</p>
+          <p id="timer-value" class="timer-value" aria-live="off">0:00</p>
+          <div class="timer-track" aria-hidden="true"><span id="timer-fill"></span></div>
+        </section>
+      </div>
+      <div class="console-side">
+        <p id="conn" class="conn" data-state="connecting" role="status" aria-live="polite">
+          <span class="conn-dot" aria-hidden="true"></span><span id="conn-text">Connecting…</span>
+        </p>
+        <button id="estop" class="estop" type="button" disabled>
+          <span class="estop-main">Emergency stop</span>
+          <span class="estop-sub">all motion + audio</span>
+        </button>
+      </div>
+    </header>
+
+    <div id="offline" class="offline" role="alert">
+      <p id="offline-text">Connecting to the brain…</p>
+      <button id="retry" type="button" class="retry">Retry now</button>
+    </div>
+
+    <dl class="facts" aria-label="Session facts">
+      <div>
+        <dt>Mode</dt>
+        <dd id="mode">—</dd>
+      </div>
+      <div>
+        <dt>Participant</dt>
+        <dd id="participant">—</dd>
+      </div>
+      <div>
+        <dt>Active body</dt>
+        <dd id="active-body">—</dd>
+      </div>
+    </dl>
+
+    <main class="board">
+      <section class="panel panel-controls" aria-labelledby="controls-title">
+        <h2 id="controls-title">Controls</h2>
+        <div id="command-groups" class="command-groups"></div>
+        <form id="composer" class="composer" novalidate>
+          <div class="composer-head">
+            <h3 id="composer-title">—</h3>
+            <p id="composer-hint" class="muted"></p>
+          </div>
+          <div id="composer-fields" class="composer-fields"></div>
+          <label class="field" for="reason">
+            <span class="field-label">Reason <abbr title="required">*</abbr></span>
+            <select id="reason" name="reason" required></select>
+          </label>
+          <label class="field" for="note">
+            <span class="field-label">Note <span class="muted">(required for “Other”)</span></span>
+            <input id="note" name="note" type="text" maxlength="500" autocomplete="off" />
+          </label>
+          <label class="keep">
+            <input id="keep-reason" type="checkbox" /> Keep reason for the next action
+          </label>
+          <p id="form-error" class="form-error" role="alert"></p>
+          <button id="send" class="send" type="submit" disabled>Not connected</button>
+        </form>
+      </section>
+
+      <section class="panel panel-transcript" aria-labelledby="transcript-title">
+        <h2 id="transcript-title">
+          Transcript <span class="muted">newest first · slow &gt; 2.5 s</span>
+        </h2>
+        <ol id="transcript" class="transcript"></ol>
+      </section>
+
+      <div class="side">
+        <section class="panel" aria-labelledby="health-title">
+          <h2 id="health-title">Bodies</h2>
+          <ul id="health" class="health"></ul>
+        </section>
+        <section class="panel" aria-labelledby="alerts-title">
+          <h2 id="alerts-title">Alerts <span id="alert-count" class="badge" hidden></span></h2>
+          <ol id="alerts" class="alerts"></ol>
+        </section>
+        <section class="panel" aria-labelledby="log-title">
+          <h2 id="log-title">Sent commands</h2>
+          <ol id="command-log" class="command-log"></ol>
+        </section>
+        <section class="panel" aria-labelledby="memory-title">
+          <h2 id="memory-title">Memory</h2>
+          <dl id="memory" class="memory"></dl>
+        </section>
+      </div>
     </main>
     <script type="module" src="/src/woz/main.ts"></script>
   </body>

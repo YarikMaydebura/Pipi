@@ -3,14 +3,42 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Pipi fake robot</title>
-    <link rel="stylesheet" href="/src/common/base.css" />
+    <meta name="color-scheme" content="dark" />
+    <title>Pipi · Alpha Mini (simulated)</title>
+    <link rel="stylesheet" href="/src/fake-robot/fake-robot.css" />
   </head>
   <body>
-    <main class="page" aria-labelledby="title">
-      <h1 id="title">Fake robot</h1>
-      <p class="muted">Skeleton (M0). The SVG Alpha-Mini-like robot arrives in M3.</p>
-      <p id="status" class="status">starting…</p>
+    <main class="room" aria-labelledby="room-title">
+      <h1 id="room-title" class="visually-hidden">Alpha Mini robot (simulated) with Pipi</h1>
+      <canvas id="robot-canvas" class="robot-canvas" aria-hidden="true"></canvas>
+
+      <div id="flat-robot" class="flat-robot" hidden aria-hidden="true">
+        <div class="flat-face">
+          <canvas class="flat-eye"></canvas>
+          <canvas class="flat-eye"></canvas>
+        </div>
+      </div>
+
+      <section
+        id="caption"
+        class="caption"
+        data-visible="false"
+        aria-hidden="true"
+        aria-live="polite"
+        aria-label="What Pipi says"
+      >
+        <span class="caption-name">Pipi</span>
+        <p class="speech-bubble-text caption-text"></p>
+      </section>
+
+      <footer class="hud">
+        <p id="model-label" class="model-label">Alpha Mini (simulated)</p>
+        <p id="sound-hint" class="sound-hint" hidden>Click anywhere to enable sound</p>
+        <p id="brain-status" class="brain-status" data-state="connecting" role="status">
+          <span class="brain-dot" aria-hidden="true"></span>
+          <span id="brain-status-text">connecting to brain…</span>
+        </p>
+      </footer>
     </main>
     <script type="module" src="/src/fake-robot/main.ts"></script>
   </body>
