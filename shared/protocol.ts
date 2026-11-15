@@ -42,6 +42,9 @@ export type Expression = z.infer<typeof Expression>;
 export const BodyName = z.enum(['desktop_pet', 'fake_robot']);
 export type BodyName = z.infer<typeof BodyName>;
 
+export const RobotSide = z.enum(['left', 'right']);
+export type RobotSide = z.infer<typeof RobotSide>;
+
 const envelope = {
   id: z.string().min(1),
   ts: z.number().int().nonnegative(),
@@ -65,7 +68,8 @@ export const Speak = z.strictObject({
   type: z.literal('speak'),
   ...envelope,
   text: z.string(),
-  audio_b64: z.string().nullish(), // tts-1 audio; absent = captions only
+  // base64 of a complete WAV file (16-bit PCM mono; 24 kHz from tts-1); absent = captions only
+  audio_b64: z.string().nullish(),
   expression: Expression.default('idle'),
 });
 
@@ -87,6 +91,13 @@ export const Caption = z.strictObject({
   text: z.string().nullable(), // null hides the caption
 });
 
+/** Sent once right after `hello`: settings the body needs (e.g. where the robot stands). */
+export const BodyConfig = z.strictObject({
+  type: z.literal('body_config'),
+  ...envelope,
+  robot_side: RobotSide, // screen edge facing the robot: Pipi jumps off / lands on this side
+});
+
 export const BrainToBody = z.discriminatedUnion('type', [
   Activate,
   Deactivate,
@@ -94,6 +105,7 @@ export const BrainToBody = z.discriminatedUnion('type', [
   Eyes,
   Motion,
   Caption,
+  BodyConfig,
 ]);
 export type BrainToBody = z.infer<typeof BrainToBody>;
 

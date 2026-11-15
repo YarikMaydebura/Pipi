@@ -35,6 +35,8 @@ Expression = Literal["idle", "happy", "surprised", "thinking", "sad", "sleepy", 
 
 BodyName = Literal["desktop_pet", "fake_robot"]
 
+RobotSide = Literal["left", "right"]
+
 
 def _new_id() -> str:
     return str(uuid.uuid4())
@@ -70,7 +72,8 @@ class Deactivate(Envelope):
 class Speak(Envelope):
     type: Literal["speak"] = "speak"
     text: str
-    audio_b64: str | None = None  # tts-1 audio; absent = captions only
+    # base64 of a complete WAV file (16-bit PCM mono; 24 kHz from tts-1); absent = captions only
+    audio_b64: str | None = None
     expression: Expression = "idle"
 
 
@@ -89,8 +92,15 @@ class Caption(Envelope):
     text: str | None  # None hides the caption
 
 
+class BodyConfig(Envelope):
+    """Sent once right after ``hello``: settings the body needs (e.g. where the robot stands)."""
+
+    type: Literal["body_config"] = "body_config"
+    robot_side: RobotSide  # screen edge facing the robot: Pipi jumps off / lands on this side
+
+
 BrainToBody = Annotated[
-    Activate | Deactivate | Speak | Eyes | Motion | Caption,
+    Activate | Deactivate | Speak | Eyes | Motion | Caption | BodyConfig,
     Field(discriminator="type"),
 ]
 

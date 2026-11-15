@@ -17,7 +17,7 @@
       "id": "6f1c2a80-0003-4000-8000-000000000003",
       "ts": 1763100000200,
       "text": "Ta-da! Hi again!",
-      "audio_b64": "SUQzBAAAAAAA",
+      "audio_b64": "UklGRiQAAABXQVZFZm10IBAAAAABAAEAwF0AAIC7AAACABAAZGF0YQAAAAA=",
       "expression": "happy"
     },
     {
@@ -50,6 +50,12 @@
       "id": "6f1c2a80-0008-4000-8000-000000000008",
       "ts": 1763100000700,
       "text": null
+    },
+    {
+      "type": "body_config",
+      "id": "6f1c2a80-0009-4000-8000-000000000009",
+      "ts": 1763100000800,
+      "robot_side": "left"
     }
   ],
   "body_to_brain": [
@@ -90,19 +96,94 @@
     }
   ],
   "invalid_brain_to_body": [
-    { "type": "activate", "id": "x", "ts": 1, "entrance": "teleport" },
-    { "type": "eyes", "id": "x", "ts": 1, "state": "rainbow" },
-    { "type": "motion", "id": "x", "ts": 1, "name": "" },
-    { "type": "speak", "id": "x", "ts": 1, "text": "hi", "unexpected_field": true },
-    { "type": "caption", "id": "x", "ts": 1 },
-    { "type": "dance", "id": "x", "ts": 1 }
+    {
+      "type": "activate",
+      "id": "x",
+      "ts": 1,
+      "entrance": "teleport"
+    },
+    {
+      "type": "eyes",
+      "id": "x",
+      "ts": 1,
+      "state": "rainbow"
+    },
+    {
+      "type": "motion",
+      "id": "x",
+      "ts": 1,
+      "name": ""
+    },
+    {
+      "type": "speak",
+      "id": "x",
+      "ts": 1,
+      "text": "hi",
+      "unexpected_field": true
+    },
+    {
+      "type": "caption",
+      "id": "x",
+      "ts": 1
+    },
+    {
+      "type": "dance",
+      "id": "x",
+      "ts": 1
+    },
+    {
+      "type": "body_config",
+      "id": "x",
+      "ts": 1,
+      "robot_side": "up"
+    },
+    {
+      "type": "body_config",
+      "id": "x",
+      "ts": 1
+    }
   ],
   "invalid_body_to_brain": [
-    { "type": "hello", "id": "x", "ts": 1, "body": "alpha_mini", "version": "0.1.0" },
-    { "type": "speech_done", "id": "x", "ts": 1, "ref_id": "y", "duration_ms": -5 },
-    { "type": "ack", "id": "", "ts": 1, "ref_id": "y", "ok": true },
-    { "type": "user_click", "id": "x", "ts": -1, "target": "pipi" },
-    { "type": "speech_done", "id": "x", "ts": 1, "ref_id": "y", "duration_ms": "100" },
-    { "type": "hello", "id": "x", "ts": 1.5, "body": "desktop_pet", "version": "0.1.0" }
+    {
+      "type": "hello",
+      "id": "x",
+      "ts": 1,
+      "body": "alpha_mini",
+      "version": "0.1.0"
+    },
+    {
+      "type": "speech_done",
+      "id": "x",
+      "ts": 1,
+      "ref_id": "y",
+      "duration_ms": -5
+    },
+    {
+      "type": "ack",
+      "id": "",
+      "ts": 1,
+      "ref_id": "y",
+      "ok": true
+    },
+    {
+      "type": "user_click",
+      "id": "x",
+      "ts": -1,
+      "target": "pipi"
+    },
+    {
+      "type": "speech_done",
+      "id": "x",
+      "ts": 1,
+      "ref_id": "y",
+      "duration_ms": "100"
+    },
+    {
+      "type": "hello",
+      "id": "x",
+      "ts": 1.5,
+      "body": "desktop_pet",
+      "version": "0.1.0"
+    }
   ]
 }
