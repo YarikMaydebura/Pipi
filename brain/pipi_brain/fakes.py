@@ -1,0 +1,226 @@
+"""Fake implementations of every external dependency: no network, no audio hardware.
+
+Used by the tests; also handy to run logic offline. Each fake records what it was asked to do,
+so tests can check behaviour (e.g. "TTS was asked to say the fallback line").
+Scripted answers may be values or exceptions; an exception is raised instead of returned.
+"""
+
+from __future__ import annotations
+
+import asyncio
+from collections.abc import Callable, Iterable, Sequence
+from dataclasses import dataclass, field
+
+import numpy as np
+
+from pipi_brain.bodies.base import NOT_CONNECTED, BodyResult, Entrance, Exit, SpeakResult
+from pipi_brain.dialogue.prompts import ChatMessage
+from pipi_brain.protocol import Expression, EyeState
+from pipi_brain.speech.base import (
+    AudioFrame,
+    MicrophoneError,
+    Samples,
+    SpeechAudio,
+)
+
+FAKE_TTS_RATE = 24000
+
+
+def make_frames(
+    segments: Iterable[tuple[float, int]],
+    *,
+    frame_samples: int = 512,
+    sample_rate: int = 16000,
+    start_at: float = 100.0,
+) -> list[AudioFrame]:
+    """Frames from (amplitude, frame_count) segments, e.g. [(0, 10), (0.5, 20), (0, 30)].
+
+    Amplitude 0 = silence; > 0 = a sine "voice". ``captured_at`` advances 32 ms per frame.
+    """
+    frame_s = frame_samples / sample_rate
+    t = np.arange(frame_samples, dtype=np.float32) / sample_rate
+    frames: list[AudioFrame] = []
+    for amplitude, count in segments:
+        samples = (amplitude * np.sin(2 * np.pi * 220 * t)).astype(np.float32)
+        for _ in range(count):
+            frames.append(AudioFrame(samples.copy(), start_at + len(frames) * frame_s))
+    return frames
+
+
+def _next_scripted(script: list[object], name: str) -> object:
+    if not script:
+        raise AssertionError(f"{name}: no scripted answer left")
+    item = script.pop(0)
+    if isinstance(item, BaseException):
+        raise item
+    return item
+
+
+class FakeMicrophone:
+    """Plays back scripted frames; raises MicrophoneError when they run out (like a dead mic)."""
+
+    def __init__(self, frames: Sequence[AudioFrame], sample_rate: int = 16000) -> None:
+        self.sample_rate = sample_rate
+        self._frames = list(frames)
+        self.started = False
+        self.closed = False
+
+    def add_frames(self, frames: Sequence[AudioFrame]) -> None:
+        self._frames.extend(frames)
+
+    async def start(self) -> None:
+        self.started = True
+
+    async def read_frame(self, timeout_s: float) -> AudioFrame:
+        await asyncio.sleep(0)
+        if not self._frames:
+            raise MicrophoneError("fake microphone has no more frames")
+        return self._frames.pop(0)
+
+    def drain(self) -> int:
+        return 0  # scripted frames are never stale
+
+    async def close(self) -> None:
+        self.closed = True
+
+
+class FakeVad:
+    """Probability 1.0 for frames louder than ``min_amplitude``, else 0.0."""
+
+    name = "fake"
+
+    def __init__(self, min_amplitude: float = 0.05) -> None:
+        self._min_amplitude = min_amplitude
+        self.resets = 0
+
+    def reset(self) -> None:
+        self.resets += 1
+
+    def speech_probability(self, samples: Samples) -> float:
+        return 1.0 if float(np.max(np.abs(samples), initial=0.0)) > self._min_amplitude else 0.0
+
+
+@dataclass
+class FakeSpeechToText:
+    answers: list[object] = field(default_factory=list)  # str or Exception
+    delay_s: float = 0.0
+    calls: list[bytes] = field(default_factory=list)
+
+    async def transcribe(self, wav: bytes) -> str:
+        self.calls.append(wav)
+        await asyncio.sleep(self.delay_s)
+        return str(_next_scripted(self.answers, "FakeSpeechToText"))
+
+
+@dataclass
+class FakeTextToSpeech:
+    """Returns silence (10 ms per character); ``failures`` lists exceptions to raise first."""
+
+    failures: list[BaseException] = field(default_factory=list)
+    delay_s: float = 0.0
+    texts: list[str] = field(default_factory=list)
+
+    async def synthesize(self, text: str) -> SpeechAudio:
+        self.texts.append(text)
+        await asyncio.sleep(self.delay_s)
+        if self.failures:
+            raise self.failures.pop(0)
+        samples = int(FAKE_TTS_RATE * 0.01 * len(text))
+        return SpeechAudio(pcm16=b"\x00\x00" * samples, sample_rate=FAKE_TTS_RATE)
+
+
+@dataclass
+class FakeSpeaker:
+    fail_with: BaseException | None = None
+    delay_s: float = 0.0
+    on_play: Callable[[], None] | None = None  # e.g. check the audio gate during playback
+    played: list[SpeechAudio] = field(default_factory=list)
+    stops: int = 0
+
+    async def play(self, audio: SpeechAudio) -> None:
+        if self.on_play is not None:
+            self.on_play()
+        await asyncio.sleep(self.delay_s)
+        if self.fail_with is not None:
+            raise self.fail_with
+        self.played.append(audio)
+
+    def stop(self) -> None:
+        self.stops += 1
+
+
+@dataclass
+class FakeChatModel:
+    """Scripted raw model answers (JSON strings) or exceptions, in order."""
+
+    answers: list[object] = field(default_factory=list)
+    delay_s: float = 0.0
+    calls: list[list[ChatMessage]] = field(default_factory=list)
+
+    async def complete_json(self, messages: Sequence[ChatMessage]) -> str:
+        self.calls.append(list(messages))
+        await asyncio.sleep(self.delay_s)
+        return str(_next_scripted(self.answers, "FakeChatModel"))
+
+
+@dataclass
+class FakeTextInput:
+    """Typed lines; None (or running out) means the user quit."""
+
+    lines: list[str | None] = field(default_factory=list)
+
+    async def read_line(self) -> str | None:
+        await asyncio.sleep(0)
+        return self.lines.pop(0) if self.lines else None
+
+
+@dataclass
+class FakeBody:
+    """A Body that records every call. ``connected=False`` behaves like a missing pet."""
+
+    name: str = "desktop_pet"
+    connected: bool = True
+    speak_delivered: bool = True
+    on_speak: Callable[[], None] | None = None  # e.g. check the audio gate during speech
+    calls: list[tuple[str, object]] = field(default_factory=list)
+    spoken: list[tuple[str, SpeechAudio | None, str]] = field(default_factory=list)
+
+    async def wait_connected(self, timeout_s: float) -> bool:
+        await asyncio.sleep(0)
+        return self.connected
+
+    def _result(self, name: str, arg: object) -> BodyResult:
+        self.calls.append((name, arg))
+        return BodyResult(ok=True) if self.connected else BodyResult(ok=False, error=NOT_CONNECTED)
+
+    async def activate(self, entrance: Entrance) -> BodyResult:
+        return self._result("activate", entrance)
+
+    async def deactivate(self, exit: Exit) -> BodyResult:
+        return self._result("deactivate", exit)
+
+    async def set_eyes(self, state: EyeState) -> BodyResult:
+        return self._result("eyes", state)
+
+    async def play_motion(self, name: str) -> BodyResult:
+        return self._result("motion", name)
+
+    async def show_caption(self, text: str | None) -> BodyResult:
+        return self._result("caption", text)
+
+    async def speak(
+        self, text: str, audio: SpeechAudio | None, expression: Expression = "idle"
+    ) -> SpeakResult:
+        self.calls.append(("speak", text))
+        if self.on_speak is not None:
+            self.on_speak()
+        await asyncio.sleep(0)
+        if not (self.connected and self.speak_delivered):
+            error = NOT_CONNECTED if not self.connected else "body refused: test"
+            return SpeakResult(delivered=False, finished=False, error=error)
+        self.spoken.append((text, audio, expression))
+        duration = round(audio.duration_s * 1000) if audio is not None else 0
+        return SpeakResult(delivered=True, finished=True, duration_ms=duration)
+
+    def health(self) -> str:
+        return "connected (fake)" if self.connected else NOT_CONNECTED

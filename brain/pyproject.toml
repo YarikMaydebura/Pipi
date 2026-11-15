@@ -11,6 +11,11 @@ dependencies = [
     "pydantic>=2.7,<3",
     "pyyaml>=6.0",
     "python-dotenv>=1.0",
+    "openai>=1.99,<3",          # STT / LLM / TTS (gpt-4o-mini-transcribe, gpt-5-nano, tts-1)
+    "numpy>=1.26,<3",           # audio frames
+    "sounddevice>=0.4.6,<0.6",  # microphone + speaker (PortAudio wheels for Windows + macOS)
+    "onnxruntime>=1.17,<2",     # Silero VAD without torch (~15 MB instead of hundreds)
+    "websockets>=15,<17",       # body server (desktop pet, fake robot); 15+ for regex origins
 ]
 
 [project.optional-dependencies]

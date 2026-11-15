@@ -42,6 +42,15 @@ ALLOWED_MODELS: Mapping[str, frozenset[str]] = {
 }
 
 EXTENDS_KEY = "extends"
+
+# (section, key) pairs holding paths; resolved relative to the YAML file that is loaded.
+PATH_FIELDS: tuple[tuple[str, str], ...] = (
+    ("logging", "dir"),
+    ("dialogue", "personas_file"),
+    ("dialogue", "lines_file"),
+    ("dialogue", "prompts_dir"),
+    ("vad", "model_path"),
+)
 MAX_EXTENDS_DEPTH = 3
 
 
@@ -60,6 +69,18 @@ class ServerConfig(_Section):
 
 class PetConfig(_Section):
     robot_side: Literal["left", "right"]
+
+
+class BodiesConfig(_Section):
+    """WebSocket bodies (desktop pet, fake robot): how long the brain waits for them."""
+
+    hello_timeout_s: float = Field(gt=0)  # a new connection must send `hello` within this
+    ack_timeout_s: float = Field(gt=0)  # every command must be acked within this
+    ack_retries: int = Field(ge=0, le=3)  # resend harmless commands (eyes, caption) this often
+    migration_timeout_s: float = Field(gt=0)  # activate/deactivate ack after the animation
+    speech_done_margin_s: float = Field(ge=0)  # speech_done wait = audio length + this
+    caption_s_per_char: float = Field(gt=0)  # no-audio speech: estimated reading time
+    connect_wait_s: float = Field(ge=0)  # `--body pet`: wait this long for the pet at start
 
 
 class RobotConfig(_Section):
@@ -108,14 +129,76 @@ class CuesConfig(_Section):
     transition_animation: bool
 
 
+ReasoningEffort = Literal["minimal", "low", "medium", "high"]
+
+
+class PersonaConfig(_Section):
+    default: str = Field(min_length=1)  # must be an id from personas_file
+    allow_choice: bool
+
+
+class DialogueConfig(_Section):
+    """LLM turn settings and where the persona presets, fixed lines and phase prompts live."""
+
+    personas_file: Path
+    lines_file: Path
+    prompts_dir: Path
+    reasoning_effort: ReasoningEffort  # gpt-5-nano is a reasoning model: lowest = fastest
+    max_output_tokens: int = Field(ge=64, le=8000)  # includes the model's reasoning tokens
+    history_turns: int = Field(ge=0, le=50)  # recent turns sent as context
+    llm_retries: int = Field(ge=0, le=3)  # extra attempts after invalid JSON / error
+
+
+class AudioConfig(_Section):
+    sample_rate: Literal[8000, 16000]  # Silero VAD only supports these two rates
+    input_device: str | int | None  # None = system default; else device name or index
+    output_device: str | int | None
+    gate_tail_ms: int = Field(ge=0, le=5000)  # mic stays closed this long after Pipi speaks
+    mic_frame_timeout_s: float = Field(gt=0)  # no audio for this long = microphone failure
+
+    @property
+    def frame_samples(self) -> int:
+        """Samples per VAD frame: Silero needs 512 @ 16 kHz and 256 @ 8 kHz (32 ms)."""
+        return 512 if self.sample_rate == 16000 else 256
+
+
+class VadConfig(_Section):
+    engine: Literal["silero", "energy"]  # energy = simple loudness fallback, no model needed
+    threshold: float = Field(gt=0, lt=1)  # speech probability that starts an utterance
+    end_silence_ms: int = Field(ge=100, le=5000)
+    min_speech_ms: int = Field(ge=0, le=5000)  # shorter blips (coughs, clicks) are dropped
+    pre_roll_ms: int = Field(ge=0, le=2000)  # audio kept from just before speech started
+    max_utterance_s: float = Field(gt=0, le=60)
+    energy_threshold_dbfs: float = Field(lt=0)
+    model_path: Path
+    model_url: str = Field(pattern=r"^https://")
+    model_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    download_timeout_s: float = Field(gt=0)
+
+
+class TimeoutsConfig(_Section):
+    """Seconds before an external call is abandoned and its fallback is used."""
+
+    stt_s: float = Field(gt=0)
+    llm_s: float = Field(gt=0)  # per attempt
+    tts_s: float = Field(gt=0)
+    playback_margin_s: float = Field(ge=0)  # added to the audio length when waiting for playback
+
+
 class AppConfig(_Section):
     mode: Literal["dev", "study", "demo"]
     env_file: Path
     server: ServerConfig
     pet: PetConfig
+    bodies: BodiesConfig
     robot: RobotConfig
     timers: TimersConfig
     models: ModelsConfig
+    persona: PersonaConfig
+    dialogue: DialogueConfig
+    audio: AudioConfig
+    vad: VadConfig
+    timeouts: TimeoutsConfig
     logging: LoggingConfig
     cues: CuesConfig
 
@@ -161,7 +244,7 @@ def deep_merge(base: Mapping[str, Any], override: Mapping[str, Any]) -> dict[str
     return result
 
 
-def _read_yaml(path: Path) -> dict[str, Any]:
+def read_yaml(path: Path) -> dict[str, Any]:
     try:
         text = path.read_text(encoding="utf-8")
     except FileNotFoundError as exc:
@@ -182,7 +265,7 @@ def _read_yaml(path: Path) -> dict[str, Any]:
 def _read_with_extends(path: Path, depth: int) -> dict[str, Any]:
     if depth > MAX_EXTENDS_DEPTH:
         raise ConfigError(f"Too many nested '{EXTENDS_KEY}' levels at {path}")
-    data = _read_yaml(path)
+    data = read_yaml(path)
     parent_name = data.get(EXTENDS_KEY)
     own = {k: v for k, v in data.items() if k != EXTENDS_KEY}
     if parent_name is None:
@@ -198,12 +281,10 @@ def _resolve_paths(data: Mapping[str, Any], base_dir: Path) -> dict[str, Any]:
     result = dict(data)
     if isinstance(result.get("env_file"), str):
         result["env_file"] = (base_dir / result["env_file"]).resolve()
-    logging_section = result.get("logging")
-    if isinstance(logging_section, Mapping) and isinstance(logging_section.get("dir"), str):
-        result["logging"] = {
-            **logging_section,
-            "dir": (base_dir / logging_section["dir"]).resolve(),
-        }
+    for section_name, key in PATH_FIELDS:
+        section = result.get(section_name)
+        if isinstance(section, Mapping) and isinstance(section.get(key), str):
+            result[section_name] = {**section, key: (base_dir / section[key]).resolve()}
     return result
 
 

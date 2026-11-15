@@ -11,6 +11,15 @@ server:
 pet:
   robot_side: right       # which screen edge faces the robot; Pipi jumps off this side
 
+bodies:                   # WebSocket bodies (desktop pet, fake robot); seconds
+  hello_timeout_s: 5      # a new connection must introduce itself within this
+  ack_timeout_s: 2        # every command must be acked within this (else logged + fallback)
+  ack_retries: 1          # harmless commands (eyes, caption, body_config) are resent once
+  migration_timeout_s: 8  # activate/deactivate are acked when the animation has finished
+  speech_done_margin_s: 3 # waiting for speech_done = audio length + this
+  caption_s_per_char: 0.07  # no audio: caption reading time estimate (pet uses 60 ms/char)
+  connect_wait_s: 15      # `--voice-loop --body pet`: wait this long for the pet at start
+
 robot:
   body: fake_robot        # fake_robot | alpha_mini
 
@@ -25,6 +34,45 @@ models:                   # course rule: only these three models are allowed (en
   stt: gpt-4o-mini-transcribe
   tts: tts-1
   tts_voice: nova
+
+persona:
+  default: cheerful       # id from personas.yaml
+  allow_choice: true      # false = everyone gets `default` (option for the study)
+
+dialogue:
+  personas_file: personas.yaml
+  lines_file: lines.yaml  # fixed lines (fallbacks, re-prompts) with persona variants
+  prompts_dir: prompts    # <phase>.txt instructions for the LLM, e.g. prompts/greeting.txt
+  reasoning_effort: minimal  # gpt-5-nano: minimal | low | medium | high (minimal = fastest)
+  max_output_tokens: 800  # includes reasoning tokens; too low -> empty answer -> fallback line
+  history_turns: 6        # recent turns sent to the LLM as context
+  llm_retries: 1          # invalid JSON / error -> 1 retry -> scripted fallback line
+
+audio:
+  sample_rate: 16000      # 16000 | 8000 (Silero VAD supports only these)
+  input_device: null      # null = system default microphone; or a device name / index
+  output_device: null     # null = system default speaker
+  gate_tail_ms: 300       # half-duplex: mic stays closed this long after Pipi stops speaking
+  mic_frame_timeout_s: 2.0  # no audio frames for this long = microphone failure
+
+vad:
+  engine: silero          # silero | energy (energy = loudness fallback, needs no model)
+  threshold: 0.5          # speech probability that starts an utterance
+  end_silence_ms: 700     # utterance ends after this much silence
+  min_speech_ms: 250      # shorter sounds (coughs, clicks) are ignored
+  pre_roll_ms: 300        # audio kept from just before speech started (first syllable)
+  max_utterance_s: 15
+  energy_threshold_dbfs: -40  # energy fallback only: louder than this counts as speech
+  model_path: ../cache/silero_vad.onnx   # gitignored; downloaded on first run
+  model_url: https://github.com/snakers4/silero-vad/raw/v5.1.2/src/silero_vad/data/silero_vad.onnx
+  model_sha256: 2623a2953f6ff3d2c1e61740c6cdb7168133479b267dfef114a4a3cc5bdd788f
+  download_timeout_s: 30
+
+timeouts:                 # seconds; on timeout the fallback is used and an error is logged
+  stt_s: 6
+  llm_s: 6                # per attempt
+  tts_s: 6
+  playback_margin_s: 3    # waiting for playback = audio length + this
 
 logging:
   dir: ../logs            # gitignored; one folder per session
