@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pipi glb viewer</title>
+    <style>
+      :root {
+        --panel: #10191b;
+        --panel-text: #d9f3ee;
+        --muted: #7fa39c;
+        --accent: #3fe0c5;
+        --button: #1b2a2d;
+        --button-hover: #24393d;
+        --radius: 10px;
+        --font: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        height: 100vh;
+        display: grid;
+        grid-template-columns: 300px 1fr;
+        font-family: var(--font);
+        background: var(--panel);
+        color: var(--panel-text);
+      }
+      aside {
+        overflow-y: auto;
+        padding: 16px;
+        border-right: 1px solid #1f3236;
+      }
+      h1 {
+        font-size: 18px;
+        margin: 0 0 4px;
+      }
+      h2 {
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin: 18px 0 8px;
+      }
+      .buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      button {
+        font: inherit;
+        font-size: 13px;
+        color: var(--panel-text);
+        background: var(--button);
+        border: 1px solid transparent;
+        border-radius: var(--radius);
+        padding: 6px 10px;
+        cursor: pointer;
+      }
+      button:hover {
+        background: var(--button-hover);
+      }
+      button:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+      }
+      button[aria-pressed='true'] {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+      button.loop::after {
+        content: ' ↻';
+        color: var(--muted);
+      }
+      label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        margin: 6px 0;
+      }
+      #status {
+        font-size: 13px;
+        color: var(--muted);
+        min-height: 1.4em;
+      }
+      main {
+        position: relative;
+      }
+      main.checker {
+        background: repeating-conic-gradient(#d7dde0 0% 25%, #f2f5f6 0% 50%) 50% / 32px 32px;
+      }
+      main.dark {
+        background: #1e2427;
+      }
+      main.light {
+        background: #f4f6f8;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <aside>
+      <h1>Pipi glb viewer</h1>
+      <p id="status">Loading…</p>
+      <h2>Animations</h2>
+      <div class="buttons" id="clips"></div>
+      <label><input type="checkbox" id="return-idle" checked /> back to idle after one-shots</label>
+      <label>speed <input type="range" id="speed" min="0.1" max="2" step="0.1" value="1" /></label>
+      <h2>Eyes</h2>
+      <div class="buttons" id="eyes"></div>
+      <h2>Mouth</h2>
+      <div class="buttons" id="mouths"></div>
+      <h2>Background</h2>
+      <div class="buttons" id="backgrounds"></div>
+    </aside>
+    <main class="checker" id="stage"></main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

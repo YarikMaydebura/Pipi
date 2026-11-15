@@ -5,5 +5,5 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["vite/client"]
   },
-  "include": ["src/renderer/**/*.ts", "src/preload/bridge.ts"]
+  "include": ["src/renderer/**/*.ts", "src/preload/bridge.ts", "tools/**/*.ts"]
 }
