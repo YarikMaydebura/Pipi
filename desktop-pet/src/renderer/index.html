@@ -2,19 +2,35 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!-- blob: is needed by the glb loader for embedded data; everything else stays local.
+         connect-src: only WebSockets on this machine (the brain; Vite's dev reload in dev). -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws://127.0.0.1:* ws://localhost:*"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' blob: ws://127.0.0.1:* ws://localhost:*; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'"
     />
     <title>Pipi</title>
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
-    <main class="skeleton" aria-labelledby="pet-title">
-      <div class="eyes" aria-hidden="true"><span></span><span></span></div>
-      <h1 id="pet-title">Pipi</h1>
-      <p class="subtitle">desktop pet · skeleton (M0)</p>
-      <p id="status" class="status">starting…</p>
+    <main class="pet" aria-label="Pipi, your study companion">
+      <!-- Subtitles of what Pipi says (filled with textContent only). -->
+      <div id="speech-bubble" class="speech-bubble" data-visible="false" aria-hidden="true">
+        <p class="speech-bubble-text" aria-live="polite"></p>
+      </div>
+      <canvas id="pet-canvas" class="pet-canvas" aria-hidden="true"></canvas>
+
+      <!-- 2D fallback, shown only if WebGL or the 3D model fails. -->
+      <div id="pet-fallback" class="pet-fallback" hidden>
+        <div class="fallback-face" data-state="idle">
+          <span class="fallback-eye"><span class="fallback-eye-fill"></span></span>
+          <span class="fallback-eye"><span class="fallback-eye-fill"></span></span>
+          <span class="fallback-cheek fallback-cheek-left"></span>
+          <span class="fallback-cheek fallback-cheek-right"></span>
+          <!-- The mouth (an inline SVG) is added by fallback/fallbackMouth.ts. -->
+        </div>
+      </div>
+
+      <p id="debug-label" class="debug-label" role="status" hidden></p>
     </main>
     <script type="module" src="./main.ts"></script>
   </body>

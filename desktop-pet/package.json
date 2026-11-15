@@ -9,13 +9,16 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
+    "viewer": "vite tools/glb-viewer",
     "typecheck": "tsc --noEmit --composite false -p tsconfig.node.json && tsc --noEmit --composite false -p tsconfig.web.json",
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@pipi/shared": "*"
+    "@pipi/shared": "*",
+    "three": "^0.187.0"
   },
   "devDependencies": {
+    "@types/three": "^0.187.0",
     "electron": "^45.3.2",
     "electron-vite": "^6.0.0",
     "typescript": "~6.0.3",

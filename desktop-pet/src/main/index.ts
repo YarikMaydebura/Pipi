@@ -1,47 +1,26 @@
-// Electron main process: creates Pipi's window.
-// M0: a normal window. M2 makes it transparent, frameless, always-on-top and click-through.
+// Electron main process: creates Pipi's window and wires the small IPC bridge.
 import { app, BrowserWindow } from 'electron';
-import { join } from 'node:path';
+import { setupPetIpc } from './petIpc';
+import { createPetWindow } from './petWindow';
+import { setupWindowMover } from './windowMover';
 
-const WINDOW_SIZE = { width: 420, height: 320 } as const;
-const PRELOAD_PATH = join(import.meta.dirname, '../preload/index.cjs');
-const RENDERER_HTML = join(import.meta.dirname, '../renderer/index.html');
-
-function createWindow(): BrowserWindow {
-  const win = new BrowserWindow({
-    ...WINDOW_SIZE,
-    title: 'Pipi',
-    show: false,
-    webPreferences: {
-      preload: PRELOAD_PATH,
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-    },
+function openPet(): void {
+  const win = createPetWindow();
+  const teardownIpc = setupPetIpc(win);
+  const teardownMover = setupWindowMover(win);
+  win.on('closed', () => {
+    teardownIpc();
+    teardownMover();
   });
-
-  win.once('ready-to-show', () => win.show());
-  // The pet never opens other windows or navigates away from its own page.
-  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-  win.webContents.on('will-navigate', (event) => event.preventDefault());
-
-  const devServerUrl = process.env['ELECTRON_RENDERER_URL'];
-  const load =
-    !app.isPackaged && devServerUrl ? win.loadURL(devServerUrl) : win.loadFile(RENDERER_HTML);
-  load.catch((error: unknown) => {
-    console.error('Failed to load the pet page:', error);
-  });
-
-  return win;
 }
 
 app
   .whenReady()
   .then(() => {
-    createWindow();
+    openPet();
     // macOS: re-create the window when the dock icon is clicked and none is open.
     app.on('activate', () => {
-      if (BrowserWindow.getAllWindows().length === 0) createWindow();
+      if (BrowserWindow.getAllWindows().length === 0) openPet();
     });
   })
   .catch((error: unknown) => {

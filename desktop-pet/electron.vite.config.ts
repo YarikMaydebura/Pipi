@@ -7,5 +7,9 @@ export default defineConfig({
     // Sandboxed preload scripts cannot be ES modules, so build this one as CommonJS.
     build: { rolldownOptions: { output: { format: 'cjs' } } },
   },
-  renderer: {},
+  renderer: {
+    // pipi.glb is imported with `?inline` (a data: URL), because fetch() of file:// URLs is
+    // blocked in the packaged app. Listing .glb as an asset type makes `?inline` apply to it.
+    assetsInclude: ['**/*.glb'],
+  },
 });

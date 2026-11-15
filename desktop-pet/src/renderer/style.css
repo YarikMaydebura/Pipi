@@ -1,72 +1,369 @@
-/* Placeholder look for M0. The real SVG Pipi and its animations arrive in M2. */
+/* Pipi's window is transparent: only the pet itself is visible on the desktop. */
 :root {
-  --color-bg: #10141f;
-  --color-text: #eef2ff;
-  --color-muted: #8b93b0;
-  --color-eye: #4fd1ff;
+  --color-eye: #3fe0c5;
+  --color-eye-light: #b8fff1;
+  --color-eye-deep: #17a58f;
+  --color-cheek: #ff8a7a;
+  --color-face: #0b1316;
+  --color-shell: #e8f5ee;
+  --color-amber: #ffb22e;
+  --color-green: #45f27f;
+  --color-love-light: #ffd3dc;
+  --color-love: #ff7a93;
+  --color-love-deep: #e2456a;
   --font-ui: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --duration-fast: 150ms;
+  --duration-normal: 300ms;
+  --ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --bubble-ink: #10262b;
+  --bubble-paper: #f6fbf8;
+  --bubble-edge: #bfe6d8;
+  --text-bubble: 15px;
 }
 
 * {
   box-sizing: border-box;
 }
 
+html,
 body {
   margin: 0;
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  background: var(--color-bg);
-  color: var(--color-text);
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  user-select: none;
   font-family: var(--font-ui);
 }
 
-.skeleton {
-  text-align: center;
+body.is-over-pet {
+  cursor: grab;
 }
 
-.eyes {
-  display: flex;
-  gap: 18px;
-  justify-content: center;
-  margin-bottom: 12px;
+body.is-dragging {
+  cursor: grabbing;
 }
 
-.eyes span {
-  width: 22px;
-  height: 30px;
-  border-radius: 50%;
-  background: var(--color-eye);
-  box-shadow: 0 0 16px var(--color-eye);
-  animation: blink 4s infinite;
+.pet {
+  position: relative;
+  width: 100%;
+  height: 100%;
 }
 
-h1 {
+.pet-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.pet-canvas[hidden] {
+  display: none;
+}
+
+/* ---------- Speech bubble (subtitles) ---------- */
+
+.speech-bubble {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  z-index: 2;
+  width: max-content;
+  max-width: calc(100% - 28px);
+  padding: 10px 14px 11px;
+  border: 1.5px solid var(--bubble-edge);
+  border-radius: 18px 18px 18px 6px;
+  background: var(--bubble-paper);
+  color: var(--bubble-ink);
+  box-shadow:
+    0 10px 22px -12px rgb(16 38 43 / 55%),
+    0 0 0 4px rgb(63 224 197 / 12%);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(-50%) translateY(6px) scale(0.92);
+  transform-origin: 50% 100%;
+  transition:
+    opacity var(--duration-fast) ease-out,
+    transform var(--duration-normal) var(--ease-out-back);
+}
+
+/* The little tail pointing down at Pipi's head. */
+.speech-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -7px;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  border-right: 1.5px solid var(--bubble-edge);
+  border-bottom: 1.5px solid var(--bubble-edge);
+  background: var(--bubble-paper);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.speech-bubble[data-visible='true'] {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+}
+
+.speech-bubble-text {
+  display: -webkit-box;
   margin: 0;
-  font-size: 2rem;
-  letter-spacing: 0.04em;
+  overflow: hidden;
+  font-size: var(--text-bubble);
+  font-weight: 560;
+  line-height: 1.32;
+  letter-spacing: 0.005em;
+  text-align: center;
+  text-wrap: balance;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+  line-clamp: 5;
 }
 
-.subtitle,
-.status {
-  margin: 6px 0 0;
-  color: var(--color-muted);
-  font-size: 0.85rem;
-}
-
-@keyframes blink {
-  0%,
-  92%,
-  100% {
-    transform: scaleY(1);
+@media (prefers-reduced-motion: reduce) {
+  .speech-bubble {
+    transition: opacity var(--duration-fast) linear;
   }
-  95% {
-    transform: scaleY(0.1);
+}
+
+/* ---------- Debug label (dev only) ---------- */
+
+.debug-label {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgb(11 19 22 / 80%);
+  color: var(--color-eye-light);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* ---------- 2D fallback ---------- */
+
+.pet-fallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: end center;
+  padding-bottom: 48px;
+}
+
+.pet-fallback[hidden] {
+  display: none;
+}
+
+.fallback-face {
+  --speech-level: 0;
+  --gaze-x: 0px;
+  --gaze-y: 0px;
+  --eye-color: var(--color-eye);
+  --eye-height: 64px;
+  --eye-scale-y: 1;
+  --eye-smile: none;
+  position: relative;
+  display: flex;
+  gap: 44px;
+  align-items: center;
+  justify-content: center;
+  width: 220px;
+  height: 160px;
+  border-radius: 80px / 70px;
+  background: radial-gradient(ellipse at 35% 25%, #1f2d33 0%, var(--color-face) 60%);
+  border: 10px solid var(--color-shell);
+  box-shadow:
+    0 18px 30px -18px rgb(0 0 0 / 60%),
+    inset 0 -6px 14px rgb(0 0 0 / 50%);
+}
+
+/* The outer span moves and glows; the inner fill has the shape. The glow is a drop-shadow on
+   the outer span so it follows the smiling cut-out of the fill. */
+.fallback-eye {
+  width: 40px;
+  height: var(--eye-height);
+  transform: translate(var(--gaze-x), var(--gaze-y))
+    scaleY(calc(var(--eye-scale-y) * (1 + var(--speech-level) * 0.08)));
+  filter: brightness(calc(1 + var(--speech-level) * 0.45)) drop-shadow(0 0 7px var(--eye-color));
+  transition: transform var(--duration-normal) ease-out;
+}
+
+.fallback-eye-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 18px;
+  background: linear-gradient(var(--color-eye-light), var(--eye-color) 35%, var(--color-eye-deep));
+  mask-image: var(--eye-smile);
+}
+
+/* Smiling eyes (idle, listening): a big circle cut out of the bottom, as in eye_images.py
+   (depth 22% of the eye height; circle centre below the eye, radius in px for a 40px eye). */
+.fallback-face[data-state='idle'] {
+  --eye-smile: radial-gradient(circle at 50% calc(100% + 10.4px), transparent 24.4px, #000 25.4px);
+}
+
+.fallback-face[data-state='listening'] {
+  --eye-smile: radial-gradient(circle at 50% calc(100% + 7.8px), transparent 23.6px, #000 24.6px);
+}
+
+/* The mouth: an inline SVG (fallback/fallbackMouth.ts) below the eyes, glowing like them. */
+.fallback-mouth {
+  position: absolute;
+  top: 88px;
+  left: 50%;
+  width: 52px;
+  height: 52px;
+  overflow: visible;
+  transform: translateX(-50%);
+  filter: brightness(calc(1 + var(--speech-level) * 0.3)) drop-shadow(0 0 5px var(--color-eye));
+  pointer-events: none;
+}
+
+.fallback-cheek {
+  position: absolute;
+  bottom: 18px;
+  width: 30px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-cheek);
+  opacity: 0.35; /* a soft blush by default: Pipi always looks friendly */
+  transition: opacity var(--duration-normal) ease-out;
+}
+
+.fallback-cheek-left {
+  left: 14px;
+}
+
+.fallback-cheek-right {
+  right: 14px;
+}
+
+.fallback-face.cheeks-on .fallback-cheek,
+.fallback-face.cheeks-flash .fallback-cheek,
+.fallback-face[data-state='love'] .fallback-cheek,
+.fallback-face[data-state='happy'] .fallback-cheek {
+  opacity: 0.85;
+}
+
+.fallback-face[data-state='off'] .fallback-cheek {
+  opacity: 0;
+}
+
+/* Eye states */
+.fallback-face[data-state='listening'] {
+  --eye-height: 72px;
+}
+
+.fallback-face[data-state='thinking'] {
+  --gaze-x: 8px;
+  --gaze-y: -8px;
+}
+
+.fallback-face[data-state='happy'] .fallback-eye {
+  height: 22px;
+}
+
+.fallback-face[data-state='happy'] .fallback-eye-fill {
+  border-radius: 22px 22px 6px 6px;
+}
+
+.fallback-face[data-state='sad'] {
+  --eye-scale-y: 0.65;
+  --eye-color: #5cbcb1;
+}
+
+.fallback-face[data-state='surprised'] {
+  --eye-height: 76px;
+}
+
+.fallback-face[data-state='determined'] {
+  --eye-scale-y: 0.6;
+}
+
+.fallback-face[data-state='sleepy'] {
+  --eye-scale-y: 0.28;
+}
+
+.fallback-face[data-state='off'] .fallback-eye {
+  opacity: 0;
+}
+
+.fallback-face[data-state='countdown'] {
+  --eye-color: var(--color-amber);
+}
+
+.fallback-face[data-state='signal_go'] {
+  --eye-color: var(--color-green);
+}
+
+/* Pet-only look (reactions): pink "love" eyes, as assets/pipi3d/out/eyes/love.png */
+.fallback-face[data-state='love'] {
+  --color-eye-light: var(--color-love-light);
+  --eye-color: var(--color-love);
+  --color-eye-deep: var(--color-love-deep);
+}
+
+/* Motions */
+.fallback-face[data-motion='bounce'] {
+  animation: fallback-bounce 600ms var(--ease-out-back);
+}
+
+.fallback-face[data-motion='blink'] .fallback-eye,
+.fallback-face:not([data-state='happy'], [data-state='off']) .fallback-eye {
+  animation: fallback-blink 4.2s infinite;
+}
+
+.fallback-face[data-motion='blink'] .fallback-eye {
+  animation: fallback-blink-once 180ms;
+}
+
+@keyframes fallback-bounce {
+  0%,
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+  25% {
+    transform: translateY(4px) scale(1.04, 0.94);
+  }
+  55% {
+    transform: translateY(-18px) scale(0.97, 1.04);
+  }
+}
+
+@keyframes fallback-blink {
+  0%,
+  94%,
+  100% {
+    opacity: 1;
+  }
+  97% {
+    opacity: 0.1;
+  }
+}
+
+@keyframes fallback-blink-once {
+  50% {
+    opacity: 0.1;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .eyes span {
-    animation: none;
+  .fallback-face,
+  .fallback-face .fallback-eye {
+    animation: none !important;
+    transition: none;
   }
+}
+
+.reduced-motion .fallback-face,
+.reduced-motion .fallback-eye {
+  animation: none !important;
+  transition: none;
 }

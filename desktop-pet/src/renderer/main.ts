@@ -1,9 +1,159 @@
-// Renderer entry. M0 only proves that the shared protocol package works inside Electron.
-import { makeBodyMessage, PROTOCOL_VERSION } from '@pipi/shared';
+// Renderer entry: start the 3D pet, or the 2D fallback if 3D is not possible, then connect to
+// the brain. The pet must never be blank: any WebGL/model failure (now or later) switches to
+// the fallback; without a brain it keeps living on its own and keeps trying to connect.
+// Clicks, drags, hovering and idle time become reactions (interaction/); every click on Pipi
+// is also reported to the brain as `user_click` (the study log needs it).
+import {
+  applyUrlParams,
+  calmRequested,
+  forceFallbackRequested,
+  installDebugKeys,
+  isDebugEnabled,
+} from './debug/debugKeys';
+import { createFallbackView } from './fallback/CssPetView';
+import { wirePointerInput } from './input/pointerInput';
+import { InteractionController } from './interaction/interactionController';
+import { BrainClient } from './link/brainClient';
+import { createStageMotion } from './migration/stageMotion';
+import { Migrator } from './migration/migrator';
+import { PetController } from './pet/PetController';
+import type { PetView } from './pet/PetView';
+import { WebAudioPlayer } from './speech/audioPlayer';
+import { createSpeechBubble } from './speech/speechBubble';
+import { SpeechController } from './speech/speechController';
 
-const hello = makeBodyMessage({ type: 'hello', body: 'desktop_pet', version: PROTOCOL_VERSION });
+const START_TIMEOUT_MS = 8000;
+const PET_VERSION = '0.3.0'; // sent in `hello`; bump when the pet's behaviour changes
+const CLICK_TARGET = 'pipi'; // `user_click.target` for a click on Pipi itself
+const FALLBACK_BRAIN_URL = 'ws://127.0.0.1:8765'; // when the preload bridge is missing
 
-const status = document.querySelector<HTMLParagraphElement>('#status');
-if (status) {
-  status.textContent = `protocol ${PROTOCOL_VERSION} · ${hello.type} ready · ${window.pipi.platform}`;
+function element<T extends HTMLElement>(selector: string): T {
+  const found = document.querySelector<T>(selector);
+  if (!found) throw new Error(`missing element ${selector}`);
+  return found;
 }
+
+function withTimeout<T>(promise: Promise<T>, ms: number, what: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(
+      () => reject(new Error(`${what} timed out after ${ms} ms`)),
+      ms,
+    );
+    promise.then(
+      (value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        window.clearTimeout(timer);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      },
+    );
+  });
+}
+
+async function boot(): Promise<void> {
+  const canvas = element<HTMLCanvasElement>('#pet-canvas');
+  const fallbackRoot = element<HTMLElement>('#pet-fallback');
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  let controller: PetController | null = null;
+
+  const fallBack = (error: unknown): PetView => {
+    console.warn('[pipi] 3D pet unavailable, showing the 2D fallback:', error);
+    canvas.hidden = true;
+    const view = createFallbackView(fallbackRoot);
+    view.setReducedMotion(reducedMotion.matches);
+    return view;
+  };
+
+  let view: PetView;
+  let starting: Promise<PetView> | undefined;
+  try {
+    if (forceFallbackRequested(window.location.search)) throw new Error('?fallback=1 in the URL');
+    // Dynamic import: if three.js itself fails to load, the fallback still works.
+    const { create3DView } = await import('./scene/Pet3DView');
+    starting = create3DView(canvas, {
+      reducedMotion: reducedMotion.matches,
+      onFatal: (error) => controller?.replaceView(fallBack(error)),
+    });
+    view = await withTimeout(starting, START_TIMEOUT_MS, '3D pet start');
+  } catch (error: unknown) {
+    // If the 3D view only finishes after the timeout, throw it away.
+    starting?.then(
+      (late) => late.dispose(),
+      () => undefined,
+    );
+    view = fallBack(error);
+  }
+
+  const pet = new PetController(view);
+  controller = pet;
+  // Monotonic clock: a system clock change must not stall or rush the idle timeline.
+  const interaction = new InteractionController({ target: pet, now: () => performance.now() });
+  interaction.setReducedMotion(reducedMotion.matches);
+  interaction.setCalm(calmRequested(window.location.search));
+  pet.setActivityListener((activity, motion) => interaction.brain(activity, motion));
+  reducedMotion.addEventListener('change', (event) => {
+    pet.currentView.setReducedMotion(event.matches);
+    interaction.setReducedMotion(event.matches);
+  });
+
+  const client = connectToBrain(pet, () => reducedMotion.matches);
+  wirePointerInput(() => pet.currentView, window.pipi, {
+    onPoke: () => {
+      interaction.click();
+      if (!client.send({ type: 'user_click', target: CLICK_TARGET })) {
+        console.info('[pipi] user_click not sent: no brain connection');
+      }
+    },
+    onDrag: (dragging) => interaction.drag(dragging),
+    onHover: (over) => interaction.hover(over),
+  });
+  interaction.start();
+
+  if (isDebugEnabled(window.location.search, import.meta.env.DEV)) {
+    installDebugKeys(pet, document.querySelector<HTMLElement>('#debug-label'), {
+      toggleCalm: () => {
+        interaction.setCalm(!interaction.calm);
+        return interaction.calm;
+      },
+    });
+  }
+  applyUrlParams(pet, window.location.search);
+}
+
+/** Speech, caption bubble and migration services + the WebSocket link to the brain. */
+function connectToBrain(pet: PetController, reducedMotion: () => boolean): BrainClient {
+  const bridge = window.pipi;
+  const caption = createSpeechBubble(element<HTMLElement>('#speech-bubble'));
+  let client: BrainClient | null = null;
+  const speech = new SpeechController({
+    player: new WebAudioPlayer(),
+    caption,
+    outputs: {
+      setLevel: (level) => pet.setSpeechLevel(level),
+      setTalking: (on) => pet.setTalking(on),
+    },
+    onDone: (refId, durationMs) => {
+      const sent = client?.send({ type: 'speech_done', ref_id: refId, duration_ms: durationMs });
+      if (!sent) console.warn('[pipi] speech_done not sent: no brain connection');
+    },
+  });
+  const migration = new Migrator({
+    window: bridge ? { command: (command) => bridge.windowCommand(command) } : null,
+    stage: createStageMotion(element<HTMLElement>('.pet'), reducedMotion),
+    view: () => pet.currentView,
+  });
+  pet.setServices({ speech, caption, migration });
+  client = new BrainClient({
+    url: bridge?.brainUrl ?? FALLBACK_BRAIN_URL,
+    version: PET_VERSION,
+    handle: (message) => pet.handle(message),
+  });
+  client.start();
+  return client;
+}
+
+boot().catch((error: unknown) => {
+  console.error('[pipi] the pet failed to start:', error);
+});
