@@ -1,21 +1,31 @@
 """Entry point: ``python -m pipi_brain --config ../config/dev.yaml``.
 
-M0: load and validate the config, print a short summary, exit. The server and the session
-state machine are added in later milestones (see docs/ROADMAP.md).
+- Plain command (M0): load and validate the config, print a short summary, exit.
+- ``--voice-loop`` (M1): talk to Pipi in the terminal (mic -> STT -> LLM -> TTS -> speaker).
+  Add ``--typed`` to type instead of speaking. Ctrl+C ends the session and writes the log.
+  Add ``--body pet`` (M2) to speak through the desktop pet (start it with ``npm run dev`` in
+  desktop-pet/); without a pet the terminal + laptop speaker are used.
+- ``--list-audio-devices``: print microphones/speakers (for ``audio.input_device``).
+
+The server and the session state machine are added in later milestones (docs/ROADMAP.md).
 """
 
 from __future__ import annotations
 
 import argparse
+import asyncio
 import sys
 from collections.abc import Sequence
 from pathlib import Path
 
 from pipi_brain import __version__
 from pipi_brain.config import ConfigError, LoadedConfig, load_config
+from pipi_brain.logging_study import LoggerError
 
 EXIT_OK = 0
 EXIT_CONFIG_ERROR = 2
+EXIT_MISSING_KEY = 3
+EXIT_AUDIO_ERROR = 4
 
 
 def format_summary(loaded: LoadedConfig) -> str:
@@ -49,6 +59,28 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
         required=True,
         help="Path to a mode config, e.g. ../config/dev.yaml",
     )
+    parser.add_argument(
+        "--voice-loop", action="store_true", help="Talk to Pipi in the terminal (M1)."
+    )
+    parser.add_argument(
+        "--typed", action="store_true", help="With --voice-loop: type instead of speaking."
+    )
+    parser.add_argument(
+        "--body",
+        choices=("terminal", "pet"),
+        default="terminal",
+        help="With --voice-loop: 'pet' speaks through the desktop pet (WebSocket server).",
+    )
+    parser.add_argument(
+        "--participant", default="DEV", help="Pseudonymous participant id for the log (P01...)."
+    )
+    parser.add_argument("--persona", default=None, help="Persona id (default: from config).")
+    parser.add_argument(
+        "--max-turns", type=int, default=None, help="Stop after this many user turns."
+    )
+    parser.add_argument(
+        "--list-audio-devices", action="store_true", help="Print audio devices and exit."
+    )
     return parser.parse_args(argv)
 
 
@@ -60,12 +92,51 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"Config error: {exc}", file=sys.stderr)
         return EXIT_CONFIG_ERROR
 
+    if args.list_audio_devices:
+        return _list_audio_devices()
+
     print(format_summary(loaded))
     if loaded.secrets.openai_api_key is None:
         print(
             "Warning: OPENAI_API_KEY is missing. Copy .env.example to .env and fill it in.",
             file=sys.stderr,
         )
+        if args.voice_loop:
+            return EXIT_MISSING_KEY
+    if not args.voice_loop:
+        return EXIT_OK
+    return _run_voice_loop(loaded, args)
+
+
+def _list_audio_devices() -> int:
+    from pipi_brain.speech.base import MicrophoneError
+    from pipi_brain.speech.devices import describe_audio_devices
+
+    try:
+        print(describe_audio_devices())
+    except MicrophoneError as exc:
+        print(f"Audio error: {exc}", file=sys.stderr)
+        return EXIT_AUDIO_ERROR
+    return EXIT_OK
+
+
+def _run_voice_loop(loaded: LoadedConfig, args: argparse.Namespace) -> int:
+    from pipi_brain.voice_app import SessionOptions, run_voice_session
+
+    options = SessionOptions(
+        participant_id=args.participant,
+        persona_id=args.persona,
+        typed_input=args.typed,
+        max_user_turns=args.max_turns,
+        body=args.body,
+    )
+    try:
+        asyncio.run(run_voice_session(loaded, options))
+    except KeyboardInterrupt:
+        print("\nStopped.")
+    except (ConfigError, LoggerError) as exc:
+        print(f"Config error: {exc}", file=sys.stderr)
+        return EXIT_CONFIG_ERROR
     return EXIT_OK
 
 
