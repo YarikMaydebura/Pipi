@@ -38,7 +38,7 @@ from pydantic import (
 ALLOWED_MODELS: Mapping[str, frozenset[str]] = {
     "dialogue": frozenset({"gpt-5-nano"}),
     "stt": frozenset({"gpt-4o-mini-transcribe"}),
-    "tts": frozenset({"tts-1"}),
+    "tts": frozenset({"gpt-4o-mini-tts"}),
 }
 
 EXTENDS_KEY = "extends"

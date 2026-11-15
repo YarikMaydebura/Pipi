@@ -295,8 +295,12 @@ async def test_tts_adapter_requests_raw_pcm() -> None:
         return SimpleNamespace(content=b"\x00\x00" * 2400)
 
     client: Any = SimpleNamespace(audio=SimpleNamespace(speech=SimpleNamespace(create=create)))
-    tts = OpenAITextToSpeech(client, model="tts-1", voice="nova")
+    tts = OpenAITextToSpeech(client, model="gpt-4o-mini-tts", voice="nova")
     audio = await tts.synthesize("Hi!")
     assert audio == SpeechAudio(pcm16=b"\x00\x00" * 2400, sample_rate=TTS_PCM_SAMPLE_RATE)
     assert audio.duration_s == pytest.approx(0.1)
-    assert (sent["model"], sent["voice"], sent["response_format"]) == ("tts-1", "nova", "pcm")
+    assert (sent["model"], sent["voice"], sent["response_format"]) == (
+        "gpt-4o-mini-tts",
+        "nova",
+        "pcm",
+    )

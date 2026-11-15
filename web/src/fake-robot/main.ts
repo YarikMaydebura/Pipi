@@ -1,7 +1,7 @@
 // Fake robot entry: a browser page that pretends to be the Alpha Mini. It shows the 3D robot on a
 // desk (2D fallback if WebGL fails), connects to the brain's body server as `fake_robot` over the
 // same protocol as the desktop pet, and carries Pipi's identity cues: teal eyes on the robot's
-// displays, Pipi's tts-1 voice, captions. Settings come from the URL (settings.ts).
+// displays, Pipi's gpt-4o-mini-tts voice, captions. Settings come from the URL (settings.ts).
 import {
   BrainClient,
   createSpeechBubble,

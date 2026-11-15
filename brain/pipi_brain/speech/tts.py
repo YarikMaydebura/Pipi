@@ -1,4 +1,4 @@
-"""Text-to-speech with tts-1 (model and voice come from config.models).
+"""Text-to-speech with gpt-4o-mini-tts (model and voice come from config.models).
 
 We ask for raw ``pcm`` output (24 kHz, 16-bit signed little-endian, mono), so no MP3 decoder
 is needed and the audio can be played or streamed to a body as is.

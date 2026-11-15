@@ -15,7 +15,7 @@ def cache(folder: Path, tts: FakeTextToSpeech, voice: str = "nova") -> tuple[Tts
         TtsCache(
             folder,
             tts=tts,
-            model="tts-1",
+            model="gpt-4o-mini-tts",
             voice=voice,
             timeout_s=1,
             on_error=lambda kind, data: errors.append((kind, data)),
@@ -41,10 +41,10 @@ async def test_miss_synthesizes_and_stores_then_hit_is_free(tmp_path: Path) -> N
 
 
 def test_key_depends_on_voice_model_and_text() -> None:
-    base = cache_key("Hi", voice="nova", model="tts-1")
-    assert base != cache_key("Hi", voice="alloy", model="tts-1")
-    assert base != cache_key("Hi!", voice="nova", model="tts-1")
-    assert base == cache_key("Hi", voice="nova", model="tts-1")
+    base = cache_key("Hi", voice="nova", model="gpt-4o-mini-tts")
+    assert base != cache_key("Hi", voice="alloy", model="gpt-4o-mini-tts")
+    assert base != cache_key("Hi!", voice="nova", model="gpt-4o-mini-tts")
+    assert base == cache_key("Hi", voice="nova", model="gpt-4o-mini-tts")
 
 
 async def test_failure_returns_no_audio_and_stores_nothing(tmp_path: Path) -> None:

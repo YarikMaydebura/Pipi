@@ -32,7 +32,7 @@ timers:
 models:                   # course rule: only these three models are allowed (enforced in code)
   dialogue: gpt-5-nano
   stt: gpt-4o-mini-transcribe
-  tts: tts-1
+  tts: gpt-4o-mini-tts
   tts_voice: nova
 
 persona:

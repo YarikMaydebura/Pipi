@@ -169,7 +169,7 @@ def make_session(
         TtsCache(
             tts_cache_dir,
             tts=tts,
-            model="tts-1",
+            model="gpt-4o-mini-tts",
             voice="nova",
             timeout_s=1,
             on_error=lambda kind, data: logger.log(kind, data),

@@ -11,7 +11,7 @@ import numpy as np
 from pipi_brain.speech.audio_utils import float_to_pcm16
 from pipi_brain.speech.base import SpeechAudio
 
-BABBLE_RATE = 24000  # same rate as tts-1 pcm output
+BABBLE_RATE = 24000  # same rate as gpt-4o-mini-tts pcm output
 CHARS_PER_S = 14.0  # roughly normal speaking speed
 MIN_DURATION_S = 0.6
 SYLLABLES_PER_S = 4.5

@@ -5,7 +5,7 @@ Run: ``python -m pipi_brain.tools.pet_cli --config ../config/dev.yaml [--body ro
 Starts the body WebSocket server (both bodies may connect), waits for the chosen body (pet:
 ``npm run dev`` in desktop-pet/; robot: http://localhost:5173/fake-robot/ from ``npm run dev``
 in web/) and reads commands from the terminal. ``say`` uses a synthetic babble voice (no API
-call) unless ``--tts`` is given, which uses the real tts-1 voice from config (a
+call) unless ``--tts`` is given, which uses the real gpt-4o-mini-tts voice from config (a
 little quota).
 Every message and failure is logged like in a session (logs/PETCLI_<time>/events.jsonl).
 """
@@ -36,7 +36,7 @@ QUIT = frozenset({"quit", "exit", "/quit", "q"})
 HELP = f"""Commands:
   eyes <state>        {" ".join(EYE_STATES)}
   motion <name>       e.g. nod, wave, signature_wave, hop, excited, think, celebrate
-  say <text>          speak with audio (babble voice, or tts-1 with --tts)
+  say <text>          speak with audio (babble voice, or gpt-4o-mini-tts with --tts)
   text <text>         speak without audio (caption only)
   caption [<text>]    show a caption; without text: hide it
   out [exit]          jump off the screen: {" | ".join(EXITS)} (default jump_out)
@@ -193,7 +193,7 @@ async def run(
             "runner": "pet_cli",
             "body": body_name,
             "robot_side": app.pet.robot_side,
-            "voice": "tts-1" if use_tts else "babble",
+            "voice": "gpt-4o-mini-tts" if use_tts else "babble",
         },
     )
     # Both WebSocket bodies may connect (pet + fake robot); the CLI drives one of them.
@@ -228,7 +228,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("--config", required=True, help="e.g. ../config/dev.yaml")
     parser.add_argument("--participant", default="PETCLI", help="log folder name prefix")
-    parser.add_argument("--tts", action="store_true", help="use the real tts-1 voice for 'say'")
+    parser.add_argument(
+        "--tts", action="store_true", help="use the real gpt-4o-mini-tts voice for 'say'"
+    )
     parser.add_argument(
         "--body",
         choices=sorted(BODY_CHOICES),

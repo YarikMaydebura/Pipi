@@ -52,7 +52,7 @@ def test_unknown_key_is_rejected(tmp_config_dir: Path) -> None:
 
 @pytest.mark.parametrize(
     ("section_key", "bad_model"),
-    [("dialogue", "gpt-4o"), ("stt", "whisper-1"), ("tts", "gpt-4o-mini-tts")],
+    [("dialogue", "gpt-4o"), ("stt", "whisper-1"), ("tts", "tts-1")],
 )
 def test_disallowed_model_is_rejected(
     tmp_config_dir: Path, section_key: str, bad_model: str

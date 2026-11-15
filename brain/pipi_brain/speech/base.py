@@ -1,7 +1,7 @@
 """Speech data types and the interfaces of every speech dependency.
 
 Real implementations: ``devices.py`` (microphone, speaker via sounddevice), ``vad.py``
-(Silero / energy), ``stt.py`` (gpt-4o-mini-transcribe), ``tts.py`` (tts-1).
+(Silero / energy), ``stt.py`` (gpt-4o-mini-transcribe), ``tts.py`` (gpt-4o-mini-tts).
 Fakes for tests and offline runs: ``pipi_brain.fakes``.
 """
 
