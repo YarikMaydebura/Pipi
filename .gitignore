@@ -5,6 +5,9 @@ docs/
 .claude/
 FIRST_PROMPT.txt
 
+# --- Course material (RidK manual etc., not ours to publish) ---
+vendor/ridk/*.pdf
+
 # --- Secrets ---
 .env
 .env.*
