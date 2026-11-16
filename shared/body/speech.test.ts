@@ -50,13 +50,21 @@ interface Harness {
   readonly frames: (() => void)[];
 }
 
-function setup(options: { failPlay?: boolean; durationMs?: number } = {}): Harness {
+interface SetupOptions {
+  failPlay?: boolean;
+  durationMs?: number;
+  /** Decoding takes until the test resolves this promise. */
+  decoding?: Promise<void>;
+}
+
+function setup(options: SetupOptions = {}): Harness {
   const log: string[] = [];
   const done: [string, number][] = [];
   const frames: (() => void)[] = [];
   let endAudio = (): void => undefined;
   const player: AudioPlayer = {
     play: async () => {
+      if (options.decoding) await options.decoding;
       if (options.failPlay) throw new Error('cannot decode');
       log.push('play');
       const ended = new Promise<void>((resolve) => {
@@ -147,6 +155,70 @@ describe('SpeechController', () => {
     expect(h.done).toEqual([['a', 300]]);
     expect(h.log).toContain('stop');
     expect(h.controller.speaking).toBe(true);
+  });
+
+  it('stop ends the audio and hides the caption at once, without speech_done', async () => {
+    const h = setup();
+    await h.controller.speak({ id: 'e1', text: 'Long story…', audio_b64: 'UklGRg==' });
+    vi.advanceTimersByTime(400);
+    h.controller.stop();
+    expect(h.log.slice(-4)).toEqual(['stop', 'level:0', 'talking:false', 'hide']);
+    expect(h.controller.speaking).toBe(false);
+    await flush(); // the stopped audio reports `ended`
+    vi.advanceTimersByTime(10_000); // guard timer, caption linger: nothing may fire any more
+    expect(h.done).toEqual([]);
+    expect(h.log.filter((entry) => entry === 'hide')).toHaveLength(1);
+  });
+
+  it('stop cancels a captions-only line and its timer', async () => {
+    const h = setup();
+    await h.controller.speak({ id: 'e2', text: 'x'.repeat(50) });
+    h.controller.stop();
+    vi.advanceTimersByTime(20_000);
+    expect(h.done).toEqual([]);
+    expect(h.log.at(-1)).toBe('hide');
+  });
+
+  it('stop while the audio is still decoding drops the line silently', async () => {
+    let decoded = (): void => undefined;
+    const decoding = new Promise<void>((resolve) => {
+      decoded = resolve;
+    });
+    const h = setup({ decoding });
+    const speaking = h.controller.speak({ id: 'e3', text: 'Hi', audio_b64: 'UklGRg==' });
+    h.controller.stop();
+    decoded();
+    expect(await speaking).toEqual({ ok: true }); // not a refusal: no laptop-speaker fallback
+    expect(h.log).toContain('stop'); // the late playback is stopped right away
+    vi.advanceTimersByTime(20_000);
+    expect(h.done).toEqual([]);
+  });
+
+  it('stop while decoding fails is not reported as an audio failure', async () => {
+    let decoded = (): void => undefined;
+    const decoding = new Promise<void>((resolve) => {
+      decoded = resolve;
+    });
+    const h = setup({ decoding, failPlay: true });
+    const speaking = h.controller.speak({ id: 'e4', text: 'Hi', audio_b64: 'bad' });
+    h.controller.stop();
+    decoded();
+    expect(await speaking).toEqual({ ok: true });
+    vi.advanceTimersByTime(20_000);
+    expect(h.done).toEqual([]);
+  });
+
+  it('stop hides a caption that was still lingering, and the next line works normally', async () => {
+    const h = setup();
+    await h.controller.speak({ id: 'a', text: 'first' });
+    vi.advanceTimersByTime(MIN_CAPTION_MS); // finished naturally: reported, caption lingers
+    expect(h.done).toEqual([['a', MIN_CAPTION_MS]]);
+    h.controller.stop();
+    expect(h.log.at(-1)).toBe('hide');
+    h.controller.stop(); // nothing to stop: harmless
+    await h.controller.speak({ id: 'b', text: 'second' });
+    vi.advanceTimersByTime(MIN_CAPTION_MS);
+    expect(h.done.map(([id]) => id)).toEqual(['a', 'b']);
   });
 
   it('gives up waiting for the audio end after its length plus a guard', async () => {

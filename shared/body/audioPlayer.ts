@@ -12,6 +12,20 @@ export interface Playback {
   stop(): void;
 }
 
+/** One synthesised note: a short sine/triangle beep with a soft attack and release. */
+export interface ToneNote {
+  readonly frequencyHz: number;
+  /** Start, in ms after playTones() was called. */
+  readonly atMs: number;
+  readonly durationMs: number;
+  /** Peak gain 0..1 (keep signals well below speech level). */
+  readonly gain: number;
+  readonly wave?: 'sine' | 'triangle' | 'square';
+}
+
+const TONE_ATTACK_S = 0.008;
+const TONE_SILENT = 0.0001; // exponential ramps cannot reach 0
+
 export interface AudioPlayer {
   /** Decode and start playing; rejects if the audio cannot be decoded or played. */
   play(audioB64: string): Promise<Playback>;
@@ -38,6 +52,45 @@ export class WebAudioPlayer implements AudioPlayer {
     this.context ??= new AudioContext();
     if (this.context.state === 'suspended') await this.context.resume();
     return this.unlocked;
+  }
+
+  /**
+   * Play a few synthesised notes (signal sounds such as the duel's "go"): generated with
+   * oscillators, so there is no file to load. Never waits and never throws: returns false (and
+   * stays silent) when audio is not unlocked yet or Web Audio fails.
+   */
+  playTones(notes: readonly ToneNote[]): boolean {
+    const context = this.context;
+    if (!context || context.state !== 'running') return false;
+    try {
+      const start = context.currentTime;
+      for (const note of notes) {
+        const from = start + note.atMs / 1000;
+        const to = from + note.durationMs / 1000;
+        const oscillator = context.createOscillator();
+        oscillator.type = note.wave ?? 'sine';
+        oscillator.frequency.setValueAtTime(note.frequencyHz, from);
+        const gain = context.createGain();
+        gain.gain.setValueAtTime(TONE_SILENT, from);
+        gain.gain.exponentialRampToValueAtTime(
+          Math.max(TONE_SILENT, note.gain),
+          from + TONE_ATTACK_S,
+        );
+        gain.gain.exponentialRampToValueAtTime(TONE_SILENT, to);
+        oscillator.connect(gain);
+        gain.connect(context.destination);
+        oscillator.onended = () => {
+          oscillator.disconnect();
+          gain.disconnect();
+        };
+        oscillator.start(from);
+        oscillator.stop(to + 0.02);
+      }
+      return true;
+    } catch (error: unknown) {
+      console.warn('[pipi] could not play a signal sound:', error);
+      return false;
+    }
   }
 
   async play(audioB64: string): Promise<Playback> {

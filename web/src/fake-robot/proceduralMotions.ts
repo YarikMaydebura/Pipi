@@ -1,69 +1,23 @@
 // Procedural robot motions: used when the model has no clip for a name (the stand-in model has
-// none; alpha_mini.glb lacks e.g. `shrug`). Each motion is a pure function from progress
-// p ∈ [0, 1] to a RobotPose offset from the rest pose. One-shots start and end at rest; loops are
-// seamless. Angles in radians, lengths in robot heights (the model is normalised to height 1).
+// none; an older alpha_mini.glb lacks the game clips). Each motion is a pure function from
+// progress p ∈ [0, 1] to a RobotPose offset from the rest pose. One-shots start and end at rest;
+// loops are seamless. This file holds the resting loops and the social gestures; the game motions
+// (act_*, duel_*) are in gameMotions.ts.
+import { GAME_MOTIONS } from './gameMotions';
+import {
+  addPoses,
+  bump,
+  clamp01,
+  hold,
+  pose,
+  REST,
+  scalePose,
+  TAU,
+  type ProceduralMotion,
+  type RobotPose,
+} from './robotPose';
 
-export interface RobotPose {
-  readonly headYaw: number; // + turns toward the viewer's right
-  readonly headPitch: number; // + looks down
-  readonly headRoll: number; // + tilts toward the viewer's right
-  readonly bodyLift: number; // + moves the whole robot up
-  readonly bodyLean: number; // + leans toward the viewer's right
-  readonly bodyBow: number; // + bows forward
-  readonly armLRaise: number; // robot's left arm (+X): + lifts sideways
-  readonly armRRaise: number; // robot's right arm (-X)
-  readonly armLForward: number; // + swings forward and up
-  readonly armRForward: number;
-}
-
-export const REST: RobotPose = {
-  headYaw: 0,
-  headPitch: 0,
-  headRoll: 0,
-  bodyLift: 0,
-  bodyLean: 0,
-  bodyBow: 0,
-  armLRaise: 0,
-  armRRaise: 0,
-  armLForward: 0,
-  armRForward: 0,
-};
-
-export function pose(values: Partial<RobotPose>): RobotPose {
-  return { ...REST, ...values };
-}
-
-const KEYS = Object.keys(REST) as (keyof RobotPose)[];
-
-export function addPoses(a: RobotPose, b: RobotPose): RobotPose {
-  const out: Record<keyof RobotPose, number> = { ...a };
-  for (const key of KEYS) out[key] = a[key] + b[key];
-  return out;
-}
-
-export function scalePose(p: RobotPose, factor: number): RobotPose {
-  const out: Record<keyof RobotPose, number> = { ...p };
-  for (const key of KEYS) out[key] = p[key] * factor;
-  return out;
-}
-
-export interface ProceduralMotion {
-  readonly durationS: number;
-  readonly loop: boolean;
-  readonly sample: (p: number) => RobotPose;
-}
-
-const TAU = Math.PI * 2;
-const clamp01 = (p: number): number => Math.min(1, Math.max(0, p));
-/** 0 → 1 → 0 over p ∈ [0, 1]. */
-const bump = (p: number): number => Math.sin(Math.PI * clamp01(p));
-/** Eases in over `edge`, holds at 1, eases out over the last `edge`. */
-function hold(p: number, edge: number): number {
-  const q = clamp01(p);
-  if (q < edge) return Math.sin((q / edge) * (Math.PI / 2));
-  if (q > 1 - edge) return Math.sin(((1 - q) / edge) * (Math.PI / 2));
-  return 1;
-}
+export { addPoses, pose, REST, scalePose, type ProceduralMotion, type RobotPose };
 
 /** Slumped sleep pose (head down, body bowed, arms hanging forward). */
 const SLUMP = pose({
@@ -172,17 +126,53 @@ export const PROCEDURAL_MOTIONS: Readonly<Record<string, ProceduralMotion>> = {
       });
     },
   },
+  // "No idea": shoulders up, forearms out with open hands, head tilted.
   shrug: {
-    durationS: 1.3,
+    durationS: 1.5,
+    loop: false,
+    sample: (p) => {
+      const h = hold(p, 0.22);
+      return pose({
+        armLRaise: 0.45 * h,
+        armRRaise: 0.45 * h,
+        armLForward: 0.15 * h,
+        armRForward: 0.15 * h,
+        elbowLBend: 1.25 * h,
+        elbowRBend: 1.25 * h,
+        headRoll: 0.16 * h,
+        bodyLift: 0.012 * h,
+      });
+    },
+  },
+  // Head and shoulders drop, arms hang, a slow small head shake.
+  sad: {
+    durationS: 2.4,
     loop: false,
     sample: (p) => {
       const h = hold(p, 0.25);
       return pose({
-        armLRaise: 0.5 * h,
-        armRRaise: 0.5 * h,
-        armLForward: 0.5 * h,
-        armRForward: 0.5 * h,
-        headRoll: 0.15 * h,
+        headPitch: 0.42 * h,
+        headYaw: 0.1 * Math.sin(p * TAU * 2) * h,
+        bodyBow: 0.1 * h,
+        bodyLift: -0.01 * h,
+        armLForward: 0.14 * h,
+        armRForward: 0.14 * h,
+      });
+    },
+  },
+  // A polite bow from the feet: one arm across the chest, the other behind.
+  bow: {
+    durationS: 2.2,
+    loop: false,
+    sample: (p) => {
+      const h = hold(p, 0.3);
+      return pose({
+        bodyBow: 0.5 * h,
+        headPitch: 0.25 * h,
+        armRForward: 0.55 * h,
+        armRRaise: -0.25 * h,
+        elbowRBend: 1.7 * h,
+        armLForward: -0.3 * h,
       });
     },
   },
@@ -205,13 +195,15 @@ export const PROCEDURAL_MOTIONS: Readonly<Record<string, ProceduralMotion>> = {
       );
     },
   },
+  // act_* (crocodile) and duel_* (quick-draw duel)
+  ...GAME_MOTIONS,
 };
 
 export const PROCEDURAL_NAMES: readonly string[] = Object.keys(PROCEDURAL_MOTIONS);
 
 /** The pose of motion `name` at `elapsedS` seconds; loops wrap, one-shots clamp to the end. */
 export function sampleMotion(name: string, elapsedS: number): RobotPose {
-  const motion = PROCEDURAL_MOTIONS[name];
+  const motion = Object.hasOwn(PROCEDURAL_MOTIONS, name) ? PROCEDURAL_MOTIONS[name] : undefined;
   if (!motion) return REST;
   const raw = elapsedS / motion.durationS;
   const p = motion.loop ? raw - Math.floor(raw) : clamp01(raw);

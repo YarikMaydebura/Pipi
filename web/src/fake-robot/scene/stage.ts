@@ -1,6 +1,8 @@
 // Renderer, camera, lights and the desk the robot stands on. Warm "desk lamp" key light with
 // soft shadows, a cool rim so the white shell separates from the background on a projector,
 // and a neutral studio environment (generated locally, no network) for glossy plastic.
+// For the duel there is a signal cue: a coloured light on the robot and a soft glowing ring on
+// the desk around its feet (off by default; RobotScene drives it from the eye state).
 // The canvas is transparent: the wall behind the desk is a CSS gradient (fake-robot.css).
 import {
   ACESFilmicToneMapping,
@@ -12,10 +14,13 @@ import {
   Group,
   HemisphereLight,
   Mesh,
+  MeshBasicMaterial,
   MeshStandardMaterial,
   PCFShadowMap,
   PerspectiveCamera,
+  PlaneGeometry,
   PMREMGenerator,
+  PointLight,
   RepeatWrapping,
   Scene,
   SRGBColorSpace,
@@ -39,6 +44,8 @@ export interface Stage {
   readonly camera: PerspectiveCamera;
   /** Slow camera drift (0 = still, e.g. reduced motion); `t` in seconds. */
   drift(t: number, amount: number): void;
+  /** Signal cue: tint light + desk ring in `color` (CSS hex), `strength` 0 (off) .. 1. */
+  setCue(color: string, strength: number): void;
   resize(): void;
   dispose(): void;
 }
@@ -68,6 +75,57 @@ function addLights(scene: Scene): void {
   const back = new DirectionalLight(0xffffff, 0.9);
   back.position.set(-1.8, 1.6, -2.2);
   scene.add(key, fill, rim, back);
+}
+
+const CUE_RING_SIZE = 2.1; // robot heights: the ring's glow reaches a bit past the feet
+const CUE_RING_OPACITY = 0.8; // plain (not additive) blending: the colour survives on light wood
+const CUE_LIGHT_INTENSITY = 5;
+
+/** A soft ring (transparent centre, glowing band, soft edge) drawn on a canvas. */
+function ringTexture(): CanvasTexture {
+  const size = 256;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    const glow = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    glow.addColorStop(0, 'rgba(255,255,255,0.22)');
+    glow.addColorStop(0.42, 'rgba(255,255,255,0.3)');
+    glow.addColorStop(0.6, 'rgba(255,255,255,1)');
+    glow.addColorStop(0.72, 'rgba(255,255,255,0.35)');
+    glow.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, size, size);
+  }
+  return new CanvasTexture(canvas);
+}
+
+interface CueParts {
+  readonly light: PointLight;
+  readonly ring: Mesh<PlaneGeometry, MeshBasicMaterial>;
+}
+
+/** The duel signal: a coloured light in front of the robot and a ring on the desk (both off). */
+function createCue(scene: Scene): CueParts {
+  const light = new PointLight(0xffffff, 0, 6, 1.6);
+  light.position.set(0, 0.95, 1.5);
+  const ring = new Mesh(
+    new PlaneGeometry(CUE_RING_SIZE, CUE_RING_SIZE),
+    new MeshBasicMaterial({
+      map: ringTexture(),
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      toneMapped: false,
+    }),
+  );
+  ring.name = 'CueRing';
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.set(0, 0.004, 0);
+  ring.visible = false;
+  scene.add(light, ring);
+  return { light, ring };
 }
 
 /** Oak-like wood grain drawn on a canvas (no image files to load). */
@@ -172,6 +230,7 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
   pmrem.dispose();
   addLights(scene);
   scene.add(createDesk());
+  const cue = createCue(scene);
 
   const camera = new PerspectiveCamera(CAMERA_FOV, 1, 0.1, 30);
   let distanceScale = 1;
@@ -207,8 +266,21 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
       if (amount <= 0) return;
       place(0.05 * amount * Math.sin(t * 0.13), 0.025 * amount * Math.sin(t * 0.09 + 1));
     },
+    setCue: (color, strength) => {
+      const level = Math.min(1, Math.max(0, strength));
+      cue.ring.visible = level > 0.002;
+      cue.ring.material.opacity = CUE_RING_OPACITY * level;
+      cue.light.intensity = CUE_LIGHT_INTENSITY * level;
+      if (level > 0) {
+        cue.ring.material.color.set(color);
+        cue.light.color.set(color);
+      }
+    },
     resize,
     dispose: () => {
+      cue.ring.material.map?.dispose();
+      cue.ring.material.dispose();
+      cue.ring.geometry.dispose();
       scene.environment?.dispose();
       renderer.dispose();
     },

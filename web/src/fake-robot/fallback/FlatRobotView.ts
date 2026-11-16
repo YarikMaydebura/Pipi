@@ -9,18 +9,27 @@ import {
   EyeController,
   mirrorForRightEye,
 } from '@pipi/shared/look';
-import { loopGestureSeconds, planMotion, type BaseLoop } from '../motionPlan';
+import { motionSeconds, planMotion, type BaseLoop } from '../motionPlan';
 import { PROCEDURAL_MOTIONS } from '../proceduralMotions';
 import type { MotionHandle, RobotView } from '../robotController';
 
 const EYE_SIZE = 256;
 const seconds = (): number => performance.now() / 1000;
 
+/** The motion being "played" (the 2D face only times it, so acks keep their rhythm). */
+interface TimedMotion {
+  readonly name: string;
+  readonly finished: Promise<void>;
+  readonly resolve: () => void;
+  timer: ReturnType<typeof setTimeout> | undefined;
+}
+
 export class FlatRobotView implements RobotView {
   private readonly eyes = new EyeController(seconds());
   private readonly contexts: CanvasRenderingContext2D[];
   private speechLevel = 0;
   private frameHandle = 0;
+  private motion: TimedMotion | null = null;
 
   constructor(private readonly root: HTMLElement) {
     root.hidden = false;
@@ -42,27 +51,49 @@ export class FlatRobotView implements RobotView {
     this.speechLevel = clamp(level, 0, 1);
   }
 
-  setBase(loop: BaseLoop): void {
+  setBase(loop: BaseLoop, interrupt: boolean): void {
     this.root.dataset['base'] = loop;
+    if (interrupt) this.endMotion();
   }
 
   perform(name: string): MotionHandle | null {
     const plan = planMotion(name, () => false);
     if (plan.kind !== 'procedural') return null;
     const def = PROCEDURAL_MOTIONS[plan.name];
-    const durationS = def?.loop ? loopGestureSeconds(plan.name) : (def?.durationS ?? 1);
-    this.root.dataset['motion'] = plan.name;
-    const finished = new Promise<void>((resolve) =>
-      setTimeout(() => {
-        if (this.root.dataset['motion'] === plan.name) delete this.root.dataset['motion'];
-        resolve();
-      }, durationS * 1000),
-    );
-    return { finished };
+    const lastsS =
+      plan.mode === 'once' ? (def?.durationS ?? 1) : motionSeconds(plan.name, plan.mode);
+    let motion = this.motion;
+    if (!motion || motion.name !== plan.name || plan.mode !== 'held') {
+      this.endMotion();
+      let resolve = (): void => undefined;
+      const finished = new Promise<void>((done) => {
+        resolve = done;
+      });
+      motion = { name: plan.name, finished, resolve, timer: undefined };
+      this.motion = motion;
+      this.root.dataset['motion'] = plan.name;
+    }
+    // A held motion that is re-sent keeps going: only its end moves.
+    const running = motion;
+    clearTimeout(running.timer);
+    running.timer = setTimeout(() => {
+      if (this.motion === running) this.endMotion();
+    }, lastsS * 1000);
+    return { finished: running.finished };
   }
 
   dispose(): void {
     window.cancelAnimationFrame(this.frameHandle);
+    this.endMotion();
+  }
+
+  private endMotion(): void {
+    const motion = this.motion;
+    if (!motion) return;
+    this.motion = null;
+    clearTimeout(motion.timer);
+    delete this.root.dataset['motion'];
+    motion.resolve();
   }
 
   private readonly onFrame = (): void => {

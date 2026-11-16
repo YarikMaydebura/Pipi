@@ -1,5 +1,6 @@
 import { BrainToBody, type EyeState, type WithoutEnvelope } from '@pipi/shared';
 import { describe, expect, it, vi } from 'vitest';
+import type { DuelCue } from './duelCue';
 import type { BaseLoop } from './motionPlan';
 import {
   RobotController,
@@ -23,7 +24,7 @@ class FakeView implements RobotView {
   readonly eyes: EyeState[] = [];
   readonly bases: [BaseLoop, boolean][] = [];
   readonly performed: string[] = [];
-  readonly known = new Set(['wake_up', 'nod', 'signature_wave']);
+  readonly known = new Set(['wake_up', 'nod', 'signature_wave', 'act_bird', 'duel_ready']);
   pending = new Map<string, () => void>();
   level = 0;
 
@@ -66,11 +67,20 @@ function setup(startAwake = false) {
   const speech = {
     speak: vi.fn(async () => ({ ok: true })),
     interrupt: vi.fn(),
+    stop: vi.fn(),
   };
   const caption = { show: vi.fn(), hide: vi.fn() };
   const timers = new ManualWait();
-  const robot = new RobotController({ view, speech, caption, startAwake, wait: timers.wait });
-  return { robot, view, speech, caption, timers };
+  const cues: DuelCue[] = [];
+  const robot = new RobotController({
+    view,
+    speech,
+    caption,
+    startAwake,
+    wait: timers.wait,
+    onCue: (cue) => cues.push(cue),
+  });
+  return { robot, view, speech, caption, timers, cues };
 }
 
 let nextId = 0;
@@ -242,5 +252,107 @@ describe('speak, eyes, motion and pet-only messages', () => {
     expect(restingLoopFor('listening')).toBe('listen');
     expect(restingLoopFor('thinking')).toBe('think');
     expect(restingLoopFor('happy')).toBe('idle');
+  });
+});
+
+describe('stop (emergency stop)', () => {
+  it('silences speech, hides the caption, cuts the motion and rests in idle with idle eyes', async () => {
+    const { robot, view, speech, caption } = setup(true);
+    await robot.handle(message({ type: 'eyes', state: 'determined' }));
+    await robot.handle(message({ type: 'motion', name: 'act_bird' }));
+    robot.setTalking(true);
+    view.level = 0.7;
+
+    const result = await robot.handle(message({ type: 'stop' }));
+
+    expect(result).toEqual({ ok: true });
+    expect(speech.stop).toHaveBeenCalledTimes(1);
+    expect(speech.interrupt).not.toHaveBeenCalled(); // interrupt would report speech_done
+    expect(caption.hide).toHaveBeenCalled();
+    expect(view.level).toBe(0);
+    expect(view.eyes.at(-1)).toBe('idle');
+    expect(view.bases.at(-1)).toEqual(['idle', true]); // interrupt = the acting loop is cut
+    expect(robot.currentBase).toBe('idle');
+    expect(robot.awake).toBe(true);
+  });
+
+  it('acks at once, without waiting for any animation', async () => {
+    const { robot, timers } = setup(true);
+    const before = timers.requested.length;
+    let acked = false;
+    void robot.handle(message({ type: 'stop' })).then(() => {
+      acked = true;
+    });
+    await flush();
+    expect(acked).toBe(true);
+    expect(timers.requested.length).toBe(before);
+  });
+
+  it('keeps working afterwards: the robot takes new commands', async () => {
+    const { robot, view, speech } = setup(true);
+    await robot.handle(message({ type: 'stop' }));
+    expect((await robot.handle(message({ type: 'motion', name: 'nod' }))).ok).toBe(true);
+    await robot.handle(message({ type: 'speak', text: 'Still here!', expression: 'happy' }));
+    expect(speech.speak).toHaveBeenCalledTimes(1);
+    robot.setTalking(true);
+    expect(view.bases.at(-1)).toEqual(['talk', false]);
+  });
+
+  it('does not wake a sleeping robot', async () => {
+    const { robot, view, speech } = setup();
+    expect((await robot.handle(message({ type: 'stop' }))).ok).toBe(true);
+    expect(speech.stop).toHaveBeenCalled();
+    expect(robot.awake).toBe(false);
+    expect(view.eyes).toEqual(['off']);
+    expect(view.bases.at(-1)).toEqual(['sleep', true]);
+  });
+
+  it('a stop during the wake-up lets the wake-up ack and leaves the robot awake', async () => {
+    const { robot, view } = setup();
+    const waking = robot.handle(message({ type: 'activate', entrance: 'wake_up' }));
+    await flush();
+    await robot.handle(message({ type: 'stop' }));
+    view.finish('wake_up'); // the view resolves a motion that was cut
+    expect((await waking).ok).toBe(true);
+    expect(robot.awake).toBe(true);
+    expect(view.eyes.at(-1)).toBe('idle');
+  });
+});
+
+describe('duel cues', () => {
+  it('reports countdown and go when the eyes change, once per change', async () => {
+    const { robot, cues } = setup(true);
+    await robot.handle(message({ type: 'motion', name: 'duel_ready' }));
+    await robot.handle(message({ type: 'eyes', state: 'countdown' }));
+    await robot.handle(message({ type: 'eyes', state: 'countdown' })); // repeated: no new cue
+    await robot.handle(message({ type: 'eyes', state: 'blink' })); // one-shot: cue stays
+    await robot.handle(message({ type: 'eyes', state: 'signal_go' }));
+    await robot.handle(message({ type: 'eyes', state: 'happy' }));
+    expect(cues).toEqual(['countdown', 'go', 'none']);
+  });
+
+  it('ends the cue on stop, on speech and when the robot goes to sleep', async () => {
+    const { robot, cues, timers } = setup(true);
+    await robot.handle(message({ type: 'eyes', state: 'signal_go' }));
+    await robot.handle(message({ type: 'stop' }));
+    await robot.handle(message({ type: 'eyes', state: 'countdown' }));
+    await robot.handle(message({ type: 'speak', text: 'Too early!', expression: 'happy' }));
+    await robot.handle(message({ type: 'eyes', state: 'countdown' }));
+    const sleeping = robot.handle(message({ type: 'deactivate', exit: 'sleep' }));
+    await flush();
+    timers.fire(SLEEP_SETTLE_MS);
+    await sleeping;
+    expect(cues).toEqual(['go', 'none', 'countdown', 'none', 'countdown', 'none']);
+  });
+
+  it('works without a cue listener', async () => {
+    const view = new FakeView();
+    const robot = new RobotController({
+      view,
+      speech: { speak: vi.fn(async () => ({ ok: true })), interrupt: vi.fn(), stop: vi.fn() },
+      caption: { show: vi.fn(), hide: vi.fn() },
+      startAwake: true,
+    });
+    expect((await robot.handle(message({ type: 'eyes', state: 'signal_go' }))).ok).toBe(true);
   });
 });

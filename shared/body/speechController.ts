@@ -1,7 +1,8 @@
 // One `speak` message from start to `speech_done`: shows the caption, plays the audio (or times
 // the caption when there is none), drives the talking animation from the audio loudness, and
 // reports the real duration when it ends. A new speak interrupts the current one (which then
-// reports speech_done right away, so the brain never waits for nothing).
+// reports speech_done right away, so the brain never waits for nothing). stop() is the emergency
+// stop: silence and no caption at once, and NO speech_done for the line that was cut.
 import type { CaptionView } from './speechBubble';
 import type { AudioPlayer, Playback } from './audioPlayer';
 import { CAPTION_LINGER_MS, captionDurationMs, smoothLevel, syntheticLevel } from './timing';
@@ -94,6 +95,8 @@ export class SpeechController {
         void playback.ended.then(() => this.finish(utterance));
         this.endAfter(utterance, playback.durationMs + PLAYBACK_GUARD_MS);
       } catch (error: unknown) {
+        // Cut (stop / a newer line) while decoding: nothing to report, nothing to fall back to.
+        if (utterance.finished) return outcome;
         const reason = error instanceof Error ? error.message : String(error);
         console.warn('[pipi] could not play the speech audio, captions only:', reason);
         outcome = { ok: false, error: `audio could not be played (${reason}); captions only` };
@@ -105,12 +108,27 @@ export class SpeechController {
     return outcome;
   }
 
-  /** Stop speaking now (e.g. Pipi jumps off the screen). */
+  /** Stop speaking now (e.g. Pipi jumps off the screen). The cut line reports speech_done. */
   interrupt(): void {
     const utterance = this.current;
     if (!utterance || utterance.finished) return;
     utterance.playback?.stop();
     this.finish(utterance);
+  }
+
+  /**
+   * Emergency stop (brain `stop`): the audio ends at once, the caption disappears now (no
+   * linger), the talking animation ends, and the cut line never reports speech_done — not now
+   * and not later (a line that was still decoding is dropped silently too).
+   */
+  stop(): void {
+    const utterance = this.current;
+    if (utterance && !utterance.finished) {
+      utterance.playback?.stop();
+      this.finish(utterance, false);
+    }
+    clearTimeout(this.hideTimer);
+    this.deps.caption.hide();
   }
 
   private endAfter(utterance: Utterance, ms: number): void {
@@ -135,7 +153,7 @@ export class SpeechController {
     utterance.stopFrames = this.frame(step);
   }
 
-  private finish(utterance: Utterance): void {
+  private finish(utterance: Utterance, report = true): void {
     if (utterance.finished) return;
     utterance.finished = true;
     clearTimeout(utterance.timer);
@@ -147,6 +165,6 @@ export class SpeechController {
       this.deps.outputs.setTalking(false);
       this.hideTimer = setTimeout(() => this.deps.caption.hide(), CAPTION_LINGER_MS);
     }
-    this.deps.onDone(utterance.id, durationMs);
+    if (report) this.deps.onDone(utterance.id, durationMs);
   }
 }

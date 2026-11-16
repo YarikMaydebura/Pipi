@@ -6,9 +6,15 @@
 // - activate: when the wake-up animation has FINISHED; deactivate: when the robot has slumped
 //   into its sleep pose and the eyes are off. Both are capped well below the brain's
 //   bodies.migration_timeout_s, so a stuck animation can never make the brain wait for nothing.
+// - stop (emergency stop): at once. Speech and caption end (no speech_done for the cut line),
+//   the running motion is cut, an awake robot rests in idle with idle eyes; it stays awake (a
+//   sleeping robot stays asleep).
+// The duel eye states (countdown / signal_go) are also reported as a scene cue (onCue), so the
+// page can tint the room and play the "go" sound.
 // No three.js here: the view is an interface, so all of this is unit-tested with fakes.
 import type { BrainToBody, EyeState } from '@pipi/shared';
 import type { HandleResult } from '@pipi/shared/body';
+import { cueForEyes, type DuelCue } from './duelCue';
 import { SLEEP_FADE_S, type BaseLoop } from './motionPlan';
 
 export interface MotionHandle {
@@ -21,7 +27,7 @@ export interface RobotView {
   setEyes(state: EyeState): void;
   /** 0..1 loudness while speaking: eye glow, chest badge. */
   setSpeechLevel(level: number): void;
-  /** The loop to rest in; `interrupt` cuts a running one-shot short. */
+  /** The loop to rest in; `interrupt` cuts the running motion (one-shot or held) short. */
   setBase(loop: BaseLoop, interrupt: boolean): void;
   /** Play a named motion (clip or procedural fallback); null if the robot cannot do it. */
   perform(name: string): MotionHandle | null;
@@ -34,6 +40,8 @@ export interface SpeechService {
     readonly audio_b64?: string | null | undefined;
   }): Promise<HandleResult>;
   interrupt(): void;
+  /** Emergency stop: silence and no caption at once, no speech_done for the cut line. */
+  stop(): void;
 }
 
 export interface CaptionService {
@@ -49,6 +57,8 @@ export interface RobotControllerDeps {
   readonly caption: CaptionService;
   readonly startAwake?: boolean;
   readonly wait?: Wait;
+  /** Called when the duel cue changes (eyes countdown → 'countdown', signal_go → 'go'). */
+  readonly onCue?: (cue: DuelCue) => void;
 }
 
 /** activate / deactivate ack at the latest after this (brain waits migration_timeout_s = 8 s). */
@@ -72,6 +82,8 @@ export class RobotController {
   private readonly speech: SpeechService;
   private readonly caption: CaptionService;
   private readonly wait: Wait;
+  private readonly onCue: ((cue: DuelCue) => void) | undefined;
+  private cue: DuelCue = 'none';
   private awakeNow: boolean;
   private eyeState: EyeState;
   private talking = false;
@@ -84,6 +96,7 @@ export class RobotController {
     this.speech = deps.speech;
     this.caption = deps.caption;
     this.wait = deps.wait ?? realWait;
+    this.onCue = deps.onCue;
     this.awakeNow = deps.startAwake ?? false;
     this.eyeState = this.awakeNow ? 'idle' : 'off';
     this.base = this.awakeNow ? 'idle' : 'sleep';
@@ -136,13 +149,38 @@ export class RobotController {
       case 'body_config':
       case 'calm':
         return OK; // desktop-pet settings: nothing to do for a robot
+      case 'stop':
+        return this.stop();
     }
   }
 
+  /**
+   * Emergency stop: everything the robot is doing ends now. Synchronous, so the ack goes out at
+   * once. The robot stays active: awake → idle loop + idle eyes, asleep → still asleep.
+   */
+  private stop(): HandleResult {
+    this.speech.stop(); // silence, caption gone, and no speech_done for the cut line
+    this.caption.hide();
+    this.talking = false;
+    this.view.setSpeechLevel(0);
+    if (this.awakeNow) this.showEyes('idle');
+    this.refreshBase(true); // cuts the running one-shot / acting loop / duel stance
+    return OK;
+  }
+
   private setEyes(state: EyeState): void {
+    this.showEyes(state);
+    this.refreshBase(false);
+  }
+
+  /** Put `state` on the eye displays and report the duel cue that goes with it. */
+  private showEyes(state: EyeState): void {
     if (state !== 'blink') this.eyeState = state; // blink is a one-shot
     this.view.setEyes(state);
-    this.refreshBase(false);
+    const cue = cueForEyes(this.eyeState);
+    if (cue === this.cue) return;
+    this.cue = cue;
+    this.onCue?.(cue);
   }
 
   private refreshBase(interrupt: boolean): void {
@@ -159,8 +197,7 @@ export class RobotController {
     if (this.awakeNow) return OK;
     const token = ++this.transition;
     this.awakeNow = true;
-    this.eyeState = 'sleepy';
-    this.view.setEyes('sleepy');
+    this.showEyes('sleepy');
     // perform first: the wake_up clip starts from the slump, so it blends in seamlessly; the
     // idle base set afterwards only shows once wake_up has finished.
     const handle = this.view.perform('wake_up');
@@ -178,14 +215,10 @@ export class RobotController {
     this.awakeNow = false;
     this.speech.interrupt();
     this.caption.hide();
-    this.eyeState = 'sleepy';
-    this.view.setEyes('sleepy');
+    this.showEyes('sleepy');
     this.refreshBase(true);
     await this.wait(SLEEP_SETTLE_MS);
-    if (token === this.transition) {
-      this.eyeState = 'off';
-      this.view.setEyes('off');
-    }
+    if (token === this.transition) this.showEyes('off');
     return OK;
   }
 

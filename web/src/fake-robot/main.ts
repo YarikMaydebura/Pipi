@@ -2,12 +2,14 @@
 // desk (2D fallback if WebGL fails), connects to the brain's body server as `fake_robot` over the
 // same protocol as the desktop pet, and carries Pipi's identity cues: teal eyes on the robot's
 // displays, Pipi's gpt-4o-mini-tts voice, captions. Settings come from the URL (settings.ts).
+import { BrainToBody, type WithoutEnvelope } from '@pipi/shared';
 import {
   BrainClient,
   createSpeechBubble,
   SpeechController,
   WebAudioPlayer,
 } from '@pipi/shared/body';
+import { GO_SOUND } from './duelCue';
 import { FlatRobotView } from './fallback/FlatRobotView';
 import { RobotController } from './robotController';
 import type { RobotScene } from './scene/RobotScene';
@@ -33,14 +35,14 @@ function timeout(ms: number, what: string): Promise<never> {
 
 async function createView(
   canvas: HTMLCanvasElement,
-  reducedMotion: boolean,
+  options: { reducedMotion: boolean; useClips: boolean },
   onFatal: (error: unknown) => void,
 ): Promise<{ view: DisposableView; label: string }> {
   let starting: Promise<RobotScene> | undefined;
   try {
     // Dynamic import: if three.js itself fails to load, the 2D fallback still works.
     const { createRobotScene } = await import('./scene/RobotScene');
-    starting = createRobotScene(canvas, { reducedMotion, onFatal });
+    starting = createRobotScene(canvas, { ...options, onFatal });
     const scene = await Promise.race([starting, timeout(START_TIMEOUT_MS, '3D robot start')]);
     const label =
       scene.source === 'glb' ? 'Alpha Mini (simulated)' : 'Alpha Mini (simulated) · stand-in model';
@@ -72,7 +74,11 @@ async function boot(): Promise<void> {
     views?.replace(new FlatRobotView(element('#flat-robot')));
     overlay.setModelLabel('Alpha Mini (simulated) · 2D');
   };
-  const { view, label } = await createView(canvas, reducedMotion.matches, fallBack);
+  const { view, label } = await createView(
+    canvas,
+    { reducedMotion: reducedMotion.matches, useClips: settings.useClips },
+    fallBack,
+  );
   views = new SwitchableView(view);
   overlay.setModelLabel(label);
   reducedMotion.addEventListener('change', (event) => {
@@ -105,7 +111,18 @@ async function boot(): Promise<void> {
       client?.send({ type: 'speech_done', ref_id: refId, duration_ms: durationMs });
     },
   });
-  robot = new RobotController({ view: views, speech, caption, startAwake: settings.startAwake });
+  robot = new RobotController({
+    view: views,
+    speech,
+    caption,
+    startAwake: settings.startAwake,
+    // Duel signals: the wall glows with the eyes, and "go" also beeps (only once sound is
+    // unlocked; playTones never waits, so the signal itself is never late).
+    onCue: (cue) => {
+      overlay.setCue(cue);
+      if (cue === 'go' && settings.goSound) player.playTones(GO_SOUND);
+    },
+  });
 
   const controller = robot;
   client = new BrainClient({
@@ -117,6 +134,16 @@ async function boot(): Promise<void> {
   });
   client.start();
   if (settings.debug) installDebugKeys((message) => controller.handle(message));
+
+  // ?eyes= / ?motion=: show something right away (handy for checking one motion by hand).
+  const startWith = (payload: WithoutEnvelope<BrainToBody>): void => {
+    const message = BrainToBody.parse({ ...payload, id: `${DEBUG_ID_PREFIX}url`, ts: Date.now() });
+    void controller.handle(message).then((result) => {
+      if (!result.ok) console.warn('[fake robot] URL parameter refused:', result.error);
+    });
+  };
+  if (settings.startEyes) startWith({ type: 'eyes', state: settings.startEyes });
+  if (settings.startMotion) startWith({ type: 'motion', name: settings.startMotion });
 }
 
 void boot().catch((error: unknown) => {

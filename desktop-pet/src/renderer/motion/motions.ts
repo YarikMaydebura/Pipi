@@ -188,6 +188,38 @@ export function isKnownMotion(name: string): boolean {
   return Object.hasOwn(MOTIONS, name);
 }
 
+/**
+ * Brain gesture names without a pipi.glb clip of their own that look best as another clip:
+ * the view plays that clip when the model has it, else the gesture's procedural motion.
+ * (`wave` is NOT an alias of signature_wave: the plain wave is the ablation of the signature.)
+ */
+export const CLIP_ALIASES: Readonly<Record<string, string>> = { excited: 'happy' };
+
+export function clipAliasFor(name: string): string | undefined {
+  return Object.hasOwn(CLIP_ALIASES, name) ? CLIP_ALIASES[name] : undefined;
+}
+
+/**
+ * Social gestures the brain's dialogue and games send to whichever body is active
+ * (docs/GAMES.md §2). The pet must play every one of them; the game motions (act_*, duel_*,
+ * rps_*, stare_*) run on the robot only and get an "unknown motion" ack here.
+ */
+export const SOCIAL_MOTIONS: readonly string[] = [
+  'wave',
+  'signature_wave',
+  'nod',
+  'shake_head',
+  'think',
+  'excited',
+  'happy',
+  'celebrate',
+  'sad',
+  'shrug',
+  'bow',
+  'wake_up',
+  'sleep',
+];
+
 /** True for motions that repeat until replaced (they can be a "base" loop). */
 export function isLoopMotion(name: string): boolean {
   return isKnownMotion(name) && MOTIONS[name]?.loop === true;

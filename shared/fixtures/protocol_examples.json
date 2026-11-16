@@ -62,6 +62,11 @@
       "id": "b-calm-1",
       "ts": 1700000000000,
       "on": true
+    },
+    {
+      "type": "stop",
+      "id": "b-stop-1",
+      "ts": 1700000000000
     }
   ],
   "body_to_brain": [
@@ -153,6 +158,12 @@
       "id": "b-calm-x",
       "ts": 1700000000000,
       "on": "yes"
+    },
+    {
+      "type": "stop",
+      "id": "b-stop-x",
+      "ts": 1700000000000,
+      "now": true
     }
   ],
   "invalid_body_to_brain": [

@@ -1,6 +1,6 @@
 // Turns a loaded model (alpha_mini.glb or the stand-in) into something we can pose: normalised to
 // height 1 with the feet at the origin, live eye materials installed, shadows on, and the bones
-// that procedural motions move (head, shoulders) found by name. Procedural poses are
+// that procedural motions move (head, shoulders, elbows) found by name. Procedural poses are
 // added on top of the clips in MODEL space, so they work whatever local axes the bones have.
 import {
   Box3,
@@ -13,12 +13,14 @@ import {
   type Material,
   type Object3D,
 } from 'three';
-import type { RobotPose } from '../proceduralMotions';
+import type { RobotPose } from '../robotPose';
 
 export const BONES = {
   head: 'head',
   shoulderL: 'shoulder.L',
   shoulderR: 'shoulder.R',
+  elbowL: 'elbow.L',
+  elbowR: 'elbow.R',
 } as const;
 type BoneKey = keyof typeof BONES;
 
@@ -150,10 +152,14 @@ export class RigPoser {
   apply(p: RobotPose): void {
     const { root, bones } = this.rig;
     root.position.y = p.bodyLift;
-    root.rotation.set(p.bodyBow, 0, -p.bodyLean);
+    root.rotation.set(p.bodyBow, p.bodyYaw, -p.bodyLean);
     this.rotate(bones.head, p.headPitch, p.headYaw, -p.headRoll);
     // The robot's left arm is on +X: raising it sideways is +Z rotation; the right arm mirrors.
     this.rotate(bones.shoulderL, -p.armLForward, 0, p.armLRaise);
     this.rotate(bones.shoulderR, -p.armRForward, 0, -p.armRRaise);
+    // Elbows bend in the frame of the resting (hanging) upper arm, so the forearm always folds
+    // toward the front of the arm, wherever the shoulder has moved it.
+    this.rotate(bones.elbowL, -p.elbowLBend, 0, 0);
+    this.rotate(bones.elbowR, -p.elbowRBend, 0, 0);
   }
 }

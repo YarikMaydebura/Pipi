@@ -3,6 +3,8 @@
 // passes every validated message to handle(); the returned result becomes the `ack`.
 // Ack timing: most messages are acked at once; `activate` / `deactivate` are acked when their
 // animation has FINISHED, and `speak` once the audio has started (speech_done comes later).
+// `stop` (emergency stop) silences Pipi and puts it back in its idle pose at once; it never
+// changes whether Pipi is on screen, asleep or away.
 // It also tells the interaction layer what the brain is doing (BrainActivity), so the pet's
 // own reactions never fight brain commands, and it is the ReactionTarget those reactions use.
 import type { BrainToBody, EyeState, RobotSide } from '@pipi/shared';
@@ -22,6 +24,8 @@ export interface SpeechService {
     readonly audio_b64?: string | null | undefined;
   }): Promise<HandleResult>;
   interrupt(): void;
+  /** Emergency stop: silence and no caption at once, no speech_done for the cut line. */
+  stop(): void;
 }
 
 /** The speech bubble (@pipi/shared/body speechBubble.ts). */
@@ -53,6 +57,8 @@ export type BrainActivityListener = (activity: BrainActivity, motion?: string) =
 type BodyMode = 'normal' | 'asleep' | 'migrating' | 'away';
 
 const OK: HandleResult = { ok: true };
+/** Reported to the interaction layer as the "motion" of a `stop`: it cancels pending reactions. */
+export const STOP_MOTION = 'stop';
 
 function failure(what: string, error: unknown): HandleResult {
   const reason = error instanceof Error ? error.message : String(error);
@@ -208,7 +214,32 @@ export class PetController implements ReactionTarget {
         // Study FOCUS phase: the interaction layer stops fidgets and keeps reactions tiny.
         this.calmHandler?.(message.on);
         return OK;
+      case 'stop':
+        return this.stop();
     }
+  }
+
+  /**
+   * Emergency stop: speech audio and caption end now (no speech_done for the cut line), the
+   * running motion and any reaction face are dropped, and an on-screen Pipi rests in idle with
+   * idle eyes. Pipi stays active: a sleeping Pipi keeps sleeping, and a jump that is under way
+   * (or an off-screen Pipi) is left alone. Synchronous, so the ack goes out at once.
+   */
+  private stop(): HandleResult {
+    this.services.speech?.stop();
+    this.services.caption?.hide();
+    this.speaking = false;
+    this.setChestPulse(false);
+    this.view.setSpeechLevel(0);
+    if (this.mode === 'normal') {
+      this.dozing = false;
+      this.eyeActivity = 'idle';
+      this.view.flashFace(null);
+      this.setEyeState('idle');
+      this.setBaseMotion('idle', true); // cuts the running one-shot or loop
+    }
+    this.listener?.(this.activity, STOP_MOTION);
+    return OK;
   }
 
   /** Who switches calm mode when the brain sends `calm` (the interaction controller). */

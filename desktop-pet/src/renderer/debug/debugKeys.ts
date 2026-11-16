@@ -8,6 +8,7 @@
 //   s                         say a test line (caption + talking animation, no audio)
 //   q                         calm mode on/off (study FOCUS: no fidgets, tiny pokes only)
 //   v                         love eyes (pink hearts) for 3 s
+//   Escape                    emergency stop (the brain's `stop`): silence, idle pose, idle eyes
 // Clips (glb clip if the model has it, else the procedural fallback; see CLIP_KEYS):
 //   loops, Shift+letter:  I idle  K talk  H think  Z sleep  L listen  D dance
 //                         A look_around  G dangle
@@ -25,6 +26,7 @@ export const EYE_STATE_KEYS = '1234567890-=';
 export const MOUTH_CYCLE_KEY = 'o';
 export const CALM_KEY = 'q';
 export const LOVE_EYES_KEY = 'v';
+export const STOP_KEY = 'Escape';
 /** Keys used by the other debug controls (CLIP_KEYS must not reuse them). */
 export const CONTROL_KEYS: readonly string[] = ['m', 'M', 'c', 't', 'o', 'j', 's', 'q', 'v'];
 /** One key per glb clip (partNames.ts GLB_CLIPS): Shift+letter = loops, the rest one-shots. */
@@ -144,6 +146,11 @@ export function installDebugKeys(
 
   const onKey = (event: KeyboardEvent): void => {
     if (event.metaKey || event.ctrlKey || event.altKey) return;
+    if (event.key === STOP_KEY) {
+      void controller.handle({ type: 'stop', ...debugEnvelope() });
+      say('stop');
+      return;
+    }
     const state = eyeStateForKey(event.key);
     if (state) {
       controller.setEyeState(state);
@@ -201,7 +208,7 @@ export function installDebugKeys(
   window.addEventListener('keydown', onKey);
   console.info(
     '[pipi] debug keys: 1-9 0 - = eye states, m/M motions, c cheeks, t chest pulse, o mouth, ' +
-      'j jump, s speak, q calm, v love eyes; clips: ' +
+      'j jump, s speak, q calm, v love eyes, Escape stop; clips: ' +
       Object.entries(CLIP_KEYS)
         .map(([key, name]) => `${key} ${name}`)
         .join(', '),

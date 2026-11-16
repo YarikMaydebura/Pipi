@@ -9,6 +9,7 @@ import { drawEye, mirrorForRightEye, type EyeFrame } from '@pipi/shared/look';
 export const EYE_DISPLAY_SIZE = 512;
 /** The display glass when nothing glows (≈ linear 0.03 / 0.05 / 0.06 in the glb). */
 export const DISPLAY_DARK = '#080d0f';
+const EYE_GLOW = 1.35; // emissive intensity of the displays
 
 class EyeDisplay {
   readonly texture: CanvasTexture;
@@ -32,7 +33,7 @@ class EyeDisplay {
       map: this.texture,
       emissive: 0xffffff,
       emissiveMap: this.texture,
-      emissiveIntensity: 1.35,
+      emissiveIntensity: EYE_GLOW,
       roughness: 0.18,
       metalness: 0,
       toneMapped: false, // keep the teal saturated
@@ -75,6 +76,12 @@ export class EyeDisplays {
   draw(frame: EyeFrame): void {
     this.left.draw(frame);
     this.right.draw(mirrorForRightEye(frame));
+  }
+
+  /** Extra glow on top of the normal brightness (0 = normal), e.g. for the duel signals. */
+  setBoost(extra: number): void {
+    this.left.material.emissiveIntensity = EYE_GLOW * (1 + extra);
+    this.right.material.emissiveIntensity = EYE_GLOW * (1 + extra);
   }
 
   dispose(): void {

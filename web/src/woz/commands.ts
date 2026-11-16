@@ -7,13 +7,29 @@ export type CommandName = WozCommandName;
 export type ReasonValue = WozReason;
 export type ArgValue = string | number | boolean;
 
-export const GAMES = [
-  'crocodile_robot',
-  'quick_draw',
-  'staring',
-  'rps_arms',
-  'crocodile_human',
-] as const;
+/** Games the brain can run now (M4); listed first in the start_game control. */
+export const AVAILABLE_GAMES = ['crocodile_robot', 'quick_draw'] as const;
+/** Games planned for a later milestone: still offered, marked "(later)"; the brain refuses them. */
+export const LATER_GAMES = ['staring', 'rps_arms', 'crocodile_human'] as const;
+export const GAMES = [...AVAILABLE_GAMES, ...LATER_GAMES] as const;
+
+const GAME_NAMES: Readonly<Record<(typeof GAMES)[number], string>> = {
+  crocodile_robot: 'Crocodile — robot acts, you guess',
+  quick_draw: 'Quick-draw duel',
+  staring: 'Staring contest',
+  rps_arms: 'Arm rock-paper-scissors',
+  crocodile_human: 'Crocodile — you act, robot guesses',
+};
+
+/** What the start_game control shows for each game id, e.g. "Staring contest (later)". */
+export const GAME_LABELS: Readonly<Record<string, string>> = Object.fromEntries(
+  GAMES.map((game) => [
+    game,
+    (LATER_GAMES as readonly string[]).includes(game)
+      ? `${GAME_NAMES[game]} (later)`
+      : GAME_NAMES[game],
+  ]),
+);
 
 /** Fixed lines from config/lines.yaml (the brain decides which ids exist). */
 export const LINE_SUGGESTIONS = [
@@ -24,21 +40,46 @@ export const LINE_SUGGESTIONS = [
   'goodbye',
 ] as const;
 
-/** Named motions from docs/GAMES.md §2 (the body decides which ones it can play). */
-export const MOTION_SUGGESTIONS = [
+/**
+ * Named motions from docs/GAMES.md §2 that the bodies know today (the body decides which ones
+ * it can play: the pet refuses the game motions). play_motion suggests them; other names can
+ * still be typed.
+ */
+export const SOCIAL_MOTIONS = [
   'wave',
   'signature_wave',
   'nod',
   'shake_head',
   'think',
   'excited',
+  'happy',
   'celebrate',
   'sad',
   'shrug',
   'bow',
+  'dance',
   'wake_up',
   'sleep',
 ] as const;
+/** Crocodile acting loops (robot only): they repeat until the next motion or a stop. */
+export const CROCODILE_MOTIONS = [
+  'act_bird',
+  'act_boxer',
+  'act_swimmer',
+  'act_dancer',
+  'act_robot',
+  'act_sleeping',
+  'act_superhero',
+  'act_drummer',
+] as const;
+/** Quick-draw duel (robot only): duel_ready holds until one of the others. */
+export const DUEL_MOTIONS = ['duel_ready', 'duel_draw', 'duel_hit', 'duel_win'] as const;
+export const MOTION_SUGGESTIONS: readonly string[] = [
+  ...SOCIAL_MOTIONS,
+  ...CROCODILE_MOTIONS,
+  ...DUEL_MOTIONS,
+  'idle', // ends an acting loop without an emergency stop
+];
 
 export const MAX_EXTEND_S = 600;
 export const MAX_TEXT_CHARS = 300; // brain: phases/woz_commands.py MAX_SAY_TEXT
@@ -58,6 +99,8 @@ interface FieldBase {
 export interface SelectField extends FieldBase {
   readonly kind: 'select';
   readonly options: readonly string[];
+  /** Text shown for an option (default: the option made readable, "quick_draw" → "Quick draw"). */
+  readonly optionLabels?: Readonly<Record<string, string>>;
 }
 
 export interface NumberField extends FieldBase {
@@ -240,8 +283,10 @@ export const COMMAND_SPECS: readonly CommandSpec[] = [
     name: 'start_game',
     label: 'Start game…',
     group: 'games',
-    hint: 'Start a game now',
-    fields: [{ key: 'game', label: 'Game', kind: 'select', options: GAMES }],
+    hint: 'Start a game now (during the break)',
+    fields: [
+      { key: 'game', label: 'Game', kind: 'select', options: GAMES, optionLabels: GAME_LABELS },
+    ],
     confirm: false,
   },
   {
@@ -272,7 +317,7 @@ export const COMMAND_SPECS: readonly CommandSpec[] = [
     name: 'play_motion',
     label: 'Play motion…',
     group: 'body',
-    hint: 'Named motion on the active body',
+    hint: 'Named motion on the active body (act_* and duel_* only on the robot)',
     fields: [
       {
         key: 'name',

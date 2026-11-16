@@ -1,7 +1,9 @@
 // Plays the named clips of alpha_mini.glb with crossfades. The robot always rests in a BASE loop
 // (idle, talk, listen, think, sleep); one-shots (nod, signature_wave, wake_up, ...) play once and
-// fade back to the base. Every one-shot returns a promise that resolves when it has finished or
-// was replaced, which is how activate/deactivate are acked "when the animation has finished".
+// fade back to the base; held motions (act_*, duel_ready) keep going until the next motion, a
+// base change with `interrupt` (that is how `stop` ends them) or the safety cap. Every motion
+// returns a promise that resolves when it has finished or was replaced, which is how
+// activate/deactivate are acked "when the animation has finished".
 import {
   AnimationMixer,
   LoopOnce,
@@ -10,12 +12,26 @@ import {
   type AnimationClip,
   type Object3D,
 } from 'three';
-import { baseFadeSeconds, isLoopClip, ONE_SHOT_FADE_S, type BaseLoop } from '../motionPlan';
+import {
+  baseFadeSeconds,
+  LOOP_CLIPS,
+  ONE_SHOT_FADE_S,
+  type BaseLoop,
+  type MotionMode,
+} from '../motionPlan';
 
 interface Running {
   readonly action: AnimationAction;
+  readonly mode: MotionMode;
+  readonly finished: Promise<void>;
   readonly resolve: () => void;
   timer: ReturnType<typeof setTimeout> | undefined;
+}
+
+export interface ClipRequest {
+  readonly mode: MotionMode;
+  /** `timed` / `held`: return to the base loop after this long (ignored for `once`). */
+  readonly seconds: number;
 }
 
 const normalise = (name: string): string =>
@@ -35,13 +51,16 @@ export class ClipDirector {
     this.mixer = new AnimationMixer(root);
     for (const clip of clips) {
       const action = this.mixer.clipAction(clip);
-      const loop = isLoopClip(normalise(clip.name)) || isLoopClip(clip.name);
+      const loop = LOOP_CLIPS.some((name) => normalise(name) === normalise(clip.name));
       action.setLoop(loop ? LoopRepeat : LoopOnce, Infinity);
       action.clampWhenFinished = !loop;
       this.actions.set(normalise(clip.name), action);
     }
     this.mixer.addEventListener('finished', (event) => {
-      if (this.oneShot?.action === event.action) this.endOneShot(true);
+      // A held motion exported as a non-looping clip stays clamped on its last frame.
+      if (this.oneShot?.action === event.action && this.oneShot.mode !== 'held') {
+        this.endOneShot(true);
+      }
     });
   }
 
@@ -73,23 +92,49 @@ export class ClipDirector {
   }
 
   /**
-   * Play `name` once (or a loop clip for `loopSeconds`), then return to the base loop.
-   * Resolves when it has finished or was replaced; null if the model has no such clip.
+   * Play `name`: once, for a few seconds (`timed`), or until replaced (`held`), then return to
+   * the base loop. Asking again for the held motion that is already playing keeps it going
+   * without a restart. Resolves when it has finished or was replaced; null if the model has no
+   * such clip.
    */
-  play(name: string, loopSeconds: number): Promise<void> | null {
+  play(name: string, request: ClipRequest): Promise<void> | null {
     const action = this.actions.get(normalise(name));
     if (!action) return null;
+    const current = this.oneShot;
+    if (
+      current &&
+      current.action === action &&
+      current.mode === 'held' &&
+      request.mode === 'held'
+    ) {
+      this.endAfter(current, request.seconds);
+      return current.finished;
+    }
     this.endOneShot(false);
-    return new Promise<void>((resolve) => {
-      const running: Running = { action, resolve, timer: undefined };
-      this.oneShot = running;
-      this.fadeTo(action, ONE_SHOT_FADE_S);
-      if (action.loop === LoopRepeat) {
-        running.timer = setTimeout(() => {
-          if (this.oneShot === running) this.endOneShot(true);
-        }, loopSeconds * 1000);
-      }
+    let resolve = (): void => undefined;
+    const finished = new Promise<void>((done) => {
+      resolve = done;
     });
+    const running: Running = { action, mode: request.mode, finished, resolve, timer: undefined };
+    this.oneShot = running;
+    this.fadeTo(action, ONE_SHOT_FADE_S);
+    // `once` ends with the mixer's `finished` event; a looping clip never fires it.
+    if (request.mode !== 'once' || action.loop === LoopRepeat) {
+      this.endAfter(running, request.seconds);
+    }
+    return finished;
+  }
+
+  /** End the running motion (if any) and fade back to the base loop. */
+  endMotion(): void {
+    this.endOneShot(true);
+  }
+
+  private endAfter(running: Running, seconds: number): void {
+    clearTimeout(running.timer);
+    running.timer = setTimeout(() => {
+      if (this.oneShot === running) this.endOneShot(true);
+    }, seconds * 1000);
   }
 
   private endOneShot(returnToBase: boolean): void {

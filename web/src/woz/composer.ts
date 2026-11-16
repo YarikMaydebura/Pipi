@@ -38,7 +38,10 @@ function fieldInput(field: ArgField): HTMLElement {
       const select = h('select', { attrs: { id, name: field.key, required: '' } }, [
         h('option', { text: `Choose…`, attrs: { value: '' } }),
         ...field.options.map((option) =>
-          h('option', { text: humanize(option), attrs: { value: option } }),
+          h('option', {
+            text: field.optionLabels?.[option] ?? humanize(option),
+            attrs: { value: option },
+          }),
         ),
       ]);
       return select;

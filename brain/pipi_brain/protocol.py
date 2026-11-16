@@ -107,8 +107,18 @@ class Calm(Envelope):
     on: bool
 
 
+class Stop(Envelope):
+    """Emergency stop: end speech audio and motion at once, hide the caption, idle eyes.
+
+    The body stays active (awake / on screen); it acks as soon as everything has stopped and
+    sends no ``speech_done`` for the interrupted speech.
+    """
+
+    type: Literal["stop"] = "stop"
+
+
 BrainToBody = Annotated[
-    Activate | Deactivate | Speak | Eyes | Motion | Caption | BodyConfig | Calm,
+    Activate | Deactivate | Speak | Eyes | Motion | Caption | BodyConfig | Calm | Stop,
     Field(discriminator="type"),
 ]
 

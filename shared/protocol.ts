@@ -106,6 +106,16 @@ export const Calm = z.strictObject({
   on: z.boolean(),
 });
 
+/**
+ * Emergency stop: end speech audio and motion at once, hide the caption, idle eyes. The body
+ * stays active; it acks as soon as everything has stopped and sends no speech_done for the
+ * interrupted speech.
+ */
+export const Stop = z.strictObject({
+  type: z.literal('stop'),
+  ...envelope,
+});
+
 export const BrainToBody = z.discriminatedUnion('type', [
   Activate,
   Deactivate,
@@ -115,6 +125,7 @@ export const BrainToBody = z.discriminatedUnion('type', [
   Caption,
   BodyConfig,
   Calm,
+  Stop,
 ]);
 export type BrainToBody = z.infer<typeof BrainToBody>;
 

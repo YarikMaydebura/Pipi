@@ -55,6 +55,7 @@ function fakeServices(log: string[], failMigration = false): PetServices {
         return { ok: true };
       },
       interrupt: () => log.push('interrupt'),
+      stop: () => log.push('speech:stop'),
     },
     caption: {
       show: (text) => log.push(`caption:${text}`),
@@ -236,6 +237,65 @@ describe('PetController', () => {
     pet.setDozing(false);
     expect(view.log).toEqual(['eyes:determined', 'eyes:sleepy', 'eyes:determined']);
     expect(pet.currentEyeState).toBe('determined');
+  });
+
+  it('stop silences Pipi, hides the caption and rests in idle with idle eyes', async () => {
+    const view = fakeView();
+    const log: string[] = [];
+    const pet = new PetController(view, fakeServices(log));
+    await pet.handle({ type: 'eyes', state: 'thinking', ...envelope });
+    await pet.handle({ type: 'speak', text: 'hi', expression: 'happy', ...envelope });
+    pet.setTalking(true);
+    await pet.handle({ type: 'motion', name: 'nod', ...envelope });
+    view.log.length = 0;
+    log.length = 0;
+
+    const result = await pet.handle({ type: 'stop', id: 's1', ts: 2 });
+
+    expect(result).toEqual({ ok: true });
+    expect(log).toEqual(['speech:stop', 'caption:hide']);
+    expect(view.log).toEqual(['chest:false', 'level:0', 'face:clear', 'eyes:idle', 'base:idle!']);
+    expect(pet.currentEyeState).toBe('idle');
+    expect(pet.activity).toBe('idle'); // still active: free to react and to take new commands
+    expect((await pet.handle({ type: 'motion', name: 'nod', ...envelope })).ok).toBe(true);
+  });
+
+  it('stop tells the interaction layer, so pending reactions are cancelled', async () => {
+    const pet = new PetController(fakeView(), fakeServices([]));
+    const seen: string[] = [];
+    pet.setActivityListener((activity, motion) => seen.push(`${activity}+${motion ?? ''}`));
+    await pet.handle({ type: 'eyes', state: 'listening', ...envelope });
+    await pet.handle({ type: 'stop', id: 's1', ts: 2 });
+    expect(seen).toEqual(['listening+', 'idle+stop']);
+  });
+
+  it('stop wakes an idle-dozing Pipi but keeps a brain-asleep Pipi asleep', async () => {
+    const view = fakeView();
+    const pet = new PetController(view, fakeServices([]));
+    pet.setDozing(true);
+    await pet.handle({ type: 'stop', id: 's1', ts: 2 });
+    expect(view.log.at(-2)).toBe('eyes:idle');
+
+    await pet.handle({ type: 'deactivate', exit: 'sleep', ...envelope });
+    view.log.length = 0;
+    expect((await pet.handle({ type: 'stop', id: 's2', ts: 3 })).ok).toBe(true);
+    expect(view.log).toEqual(['chest:false', 'level:0']); // no eyes, no motion: still asleep
+    expect(pet.activity).toBe('asleep');
+  });
+
+  it('stop leaves an off-screen Pipi off screen and works without services', async () => {
+    const log: string[] = [];
+    const view = fakeView();
+    const pet = new PetController(view, fakeServices(log));
+    await pet.handle({ type: 'deactivate', exit: 'jump_out', ...envelope });
+    view.log.length = 0;
+    await pet.handle({ type: 'stop', id: 's1', ts: 2 });
+    expect(pet.activity).toBe('away');
+    expect(view.log).toEqual(['chest:false', 'level:0']);
+    expect(log.slice(-2)).toEqual(['speech:stop', 'caption:hide']);
+
+    const bare = await new PetController(fakeView()).handle({ type: 'stop', id: 's2', ts: 3 });
+    expect(bare).toEqual({ ok: true });
   });
 
   it('forwards reaction steps to the view', () => {

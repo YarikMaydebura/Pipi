@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { idlePose, lookAt, NO_LOOK } from './idle';
-import { isLoopMotion, MOTION_BLEND_S, MOTION_NAMES, MOTIONS, MotionPlayer } from './motions';
+import {
+  CLIP_ALIASES,
+  clipAliasFor,
+  isKnownMotion,
+  isLoopMotion,
+  MOTION_BLEND_S,
+  MOTION_NAMES,
+  MOTIONS,
+  MotionPlayer,
+  SOCIAL_MOTIONS,
+} from './motions';
+import { GLB_CLIPS } from '../scene/partNames';
 import { addPoses, damp, dampTravel, hold, pose, ZERO_POSE } from './pose';
 
 describe('motions', () => {
@@ -44,6 +55,35 @@ describe('motions', () => {
     expect(player.isPlaying(60)).toBe(true);
     expect(player.play('idle', 60)).toBe(true);
     expect(player.isPlaying(60)).toBe(false);
+  });
+});
+
+describe('motion names from the brain', () => {
+  it('knows every social gesture (sad, shrug, bow, excited, wave, …)', () => {
+    for (const name of SOCIAL_MOTIONS) expect(isKnownMotion(name), name).toBe(true);
+    const player = new MotionPlayer();
+    for (const name of ['sad', 'shrug', 'bow', 'excited', 'wave']) {
+      expect(player.play(name, 0), name).toBe(true);
+    }
+  });
+
+  it('refuses the robot-only game motions instead of guessing', () => {
+    const player = new MotionPlayer();
+    for (const name of ['act_bird', 'act_drummer', 'duel_ready', 'duel_draw', 'rps_rock']) {
+      expect(isKnownMotion(name), name).toBe(false);
+      expect(player.play(name, 0), name).toBe(false);
+    }
+    expect(isKnownMotion('toString')).toBe(false);
+  });
+
+  it('aliases point at real glb clips and keep a procedural fallback', () => {
+    expect(clipAliasFor('excited')).toBe('happy');
+    expect(clipAliasFor('wave')).toBeUndefined(); // the plain wave stays a plain wave
+    expect(clipAliasFor('constructor')).toBeUndefined();
+    for (const [name, clip] of Object.entries(CLIP_ALIASES)) {
+      expect(GLB_CLIPS).toContain(clip);
+      expect(isKnownMotion(name), name).toBe(true);
+    }
   });
 });
 

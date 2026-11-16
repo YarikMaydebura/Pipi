@@ -1,5 +1,5 @@
 // A simple Alpha-Mini-like robot from three.js primitives, used only if alpha_mini.glb cannot be
-// loaded. It follows the glb contract (+Y up, faces +Z, nodes head / shoulder.L / shoulder.R,
+// loaded. It follows the glb contract (+Y up, faces +Z, nodes head / shoulder.L/R / elbow.L/R,
 // meshes EyeL / EyeR with full-square UVs, EyeR mirrored) so everything else works unchanged;
 // it has no clips, so all motions are procedural. The page labels it as a stand-in.
 import {
@@ -41,12 +41,21 @@ function createArm(side: 1 | -1): Group {
   shoulder.name = side === 1 ? 'shoulder.L' : 'shoulder.R';
   shoulder.position.set(0.15 * side, 0.55, 0);
   shoulder.add(mesh(new SphereGeometry(0.045, 20, 14), joint));
-  const arm = mesh(new CapsuleGeometry(0.036, 0.17, 6, 16), shell);
-  arm.position.set(0.018 * side, -0.11, 0);
-  arm.rotation.z = 0.12 * side;
+  const upperArm = mesh(new CapsuleGeometry(0.036, 0.055, 6, 16), shell);
+  upperArm.position.set(0.008 * side, -0.06, 0);
+  upperArm.rotation.z = 0.12 * side;
+  // The elbow is its own node, so the acting motions (boxer, drummer, ...) can bend the arm.
+  const elbow = new Group();
+  elbow.name = side === 1 ? 'elbow.L' : 'elbow.R';
+  elbow.position.set(0.016 * side, -0.12, 0);
+  elbow.add(mesh(new SphereGeometry(0.034, 16, 12), joint));
+  const forearm = mesh(new CapsuleGeometry(0.033, 0.05, 6, 16), shell);
+  forearm.position.set(0.008 * side, -0.055, 0);
+  forearm.rotation.z = 0.12 * side;
   const hand = mesh(new SphereGeometry(0.034, 16, 12), joint);
-  hand.position.set(0.04 * side, -0.23, 0.005);
-  shoulder.add(arm, hand);
+  hand.position.set(0.02 * side, -0.115, 0.005);
+  elbow.add(forearm, hand);
+  shoulder.add(upperArm, elbow);
   return shoulder;
 }
 

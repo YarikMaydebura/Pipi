@@ -25,7 +25,7 @@ import { PetController } from './pet/PetController';
 import type { PetView } from './pet/PetView';
 
 const START_TIMEOUT_MS = 8000;
-const PET_VERSION = '0.3.0'; // sent in `hello`; bump when the pet's behaviour changes
+const PET_VERSION = '0.4.0'; // sent in `hello`; bump when the pet's behaviour changes
 const CLICK_TARGET = 'pipi'; // `user_click.target` for a click on Pipi itself
 const FALLBACK_BRAIN_URL = 'ws://127.0.0.1:8765'; // when the preload bridge is missing
 

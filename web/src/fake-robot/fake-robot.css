@@ -7,6 +7,9 @@
   --teal: #3fe0c5;
   --teal-deep: #17a58f;
   --coral: #ff8a7a;
+  --cue-wait: #ffb22e; /* duel countdown: the eyes' amber */
+  --cue-go: #45f27f; /* duel go signal: the eyes' green */
+  --duration-cue: 140ms;
   --ink: #12201f;
   --paper: #fbfaf6;
   --hud-text: rgba(230, 244, 241, 0.72);
@@ -52,6 +55,60 @@ body {
     radial-gradient(ellipse 55% 60% at 22% 18%, var(--lamp), transparent 70%),
     radial-gradient(ellipse 80% 70% at 50% 40%, rgba(63, 224, 197, 0.06), transparent 70%),
     linear-gradient(180deg, var(--wall-top) 0%, var(--wall-bottom) 100%);
+}
+
+/* Duel signal: the whole wall glows amber while waiting, then green on "go", so the signal is
+   unmistakable on a projector. Only opacity and filter change (cheap to animate). */
+.cue-glow {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 500ms ease;
+}
+
+.cue-glow::before,
+.cue-glow::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity var(--duration-cue) ease-out;
+}
+
+.cue-glow::before {
+  background:
+    radial-gradient(
+      ellipse 70% 75% at 50% 62%,
+      color-mix(in srgb, var(--cue-wait) 62%, transparent),
+      transparent 72%
+    ),
+    linear-gradient(0deg, color-mix(in srgb, var(--cue-wait) 30%, transparent), transparent 55%);
+}
+
+.cue-glow::after {
+  background:
+    radial-gradient(
+      ellipse 80% 85% at 50% 60%,
+      color-mix(in srgb, var(--cue-go) 78%, transparent),
+      transparent 75%
+    ),
+    linear-gradient(0deg, color-mix(in srgb, var(--cue-go) 45%, transparent), transparent 70%);
+}
+
+.cue-glow[data-cue='countdown'],
+.cue-glow[data-cue='go'] {
+  opacity: 1;
+  transition-duration: var(--duration-cue);
+}
+
+.cue-glow[data-cue='countdown']::before {
+  opacity: 0.8;
+}
+
+.cue-glow[data-cue='go']::after {
+  opacity: 0.85;
+  animation: cue-go-pop 650ms ease-out 1;
 }
 
 .robot-canvas {
@@ -227,6 +284,19 @@ body {
   background: #080d0f;
 }
 
+/* One bright pop when the signal turns green, settling to a steady glow (not a repeated flash). */
+@keyframes cue-go-pop {
+  0% {
+    opacity: 1;
+    filter: brightness(1.7);
+  }
+
+  100% {
+    opacity: 0.85;
+    filter: brightness(1);
+  }
+}
+
 @keyframes hint-breathe {
   50% {
     transform: scale(1.04);
@@ -241,6 +311,11 @@ body {
   }
 
   .sound-hint {
+    animation: none;
+  }
+
+  /* Reduced motion: the colour simply changes and stays; no pop. */
+  .cue-glow[data-cue='go']::after {
     animation: none;
   }
 }

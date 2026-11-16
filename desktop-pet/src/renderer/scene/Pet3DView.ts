@@ -6,7 +6,7 @@ import type { EyeState } from '@pipi/shared';
 import { EyeController, clamp, applySpeechLevel } from '@pipi/shared/look';
 import { EyeTextures } from '../eyes/eyeTextures';
 import { idlePose, lookAt, NO_LOOK, type LookTarget, type ScreenPoint } from '../motion/idle';
-import { MotionPlayer } from '../motion/motions';
+import { clipAliasFor, MotionPlayer } from '../motion/motions';
 import { MouthController } from '../mouth/mouthController';
 import type { MouthShape } from '@pipi/shared/look';
 import { MouthTexture } from '../mouth/mouthTexture';
@@ -82,7 +82,8 @@ class Pet3DView implements PetView {
 
   playMotion(name: string): boolean {
     const now = seconds();
-    if (this.clips?.play(name)) {
+    const alias = clipAliasFor(name); // e.g. excited → the `happy` clip
+    if (this.clips?.play(name) || (alias !== undefined && this.clips?.play(alias))) {
       this.motions.stop(now);
       this.mouth.onMotion(name, now);
       return true;
