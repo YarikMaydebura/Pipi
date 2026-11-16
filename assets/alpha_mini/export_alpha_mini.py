@@ -30,8 +30,14 @@ MAX_BYTES = 4 * 1024 * 1024
 MAX_TRIANGLES = 60_000
 REQUIRED_NODES = {"EyeL", "EyeR", "HeadShell", "Body"}
 REQUIRED_MATERIALS = {"EyeScreen"}
-REQUIRED_CLIPS = {"idle", "talk", "listen", "think", "happy", "nod", "shake_head", "signature_wave",
-                  "celebrate", "dance", "wake_up", "sleep"}
+REQUIRED_CLIPS = {
+    "idle", "talk", "listen", "think", "happy", "nod", "shake_head", "signature_wave", "celebrate",
+    "dance", "wake_up", "sleep",
+    # games (docs/GAMES.md §2)
+    "act_bird", "act_boxer", "act_swimmer", "act_dancer", "act_robot", "act_sleeping",
+    "act_superhero", "act_drummer", "duel_ready", "duel_draw", "duel_hit", "duel_win",
+    "sad", "shrug", "bow",
+}
 REQUIRED_BONES = {
     "root", "hips", "spine", "head",
     *(f"{b}.{s}" for b in ("shoulder", "elbow", "hand", "thigh", "shin", "foot") for s in ("L", "R")),

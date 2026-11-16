@@ -1,9 +1,9 @@
 """Create the Alpha Mini look-alike's animation clips (named actions on AlphaMiniRig).
 
 Clips: idle, talk, listen, think, nod, shake_head, signature_wave, dance, sleep (shared with
-Pipi, same data, so both bodies move alike) and robot versions of happy, celebrate and
-wake_up (a rigid robot does not squash, stretch or hop). 24 fps. Conventions: see
-assets/pipi3d/animate.py.
+Pipi, same data, so both bodies move alike), robot versions of happy, celebrate and wake_up
+(a rigid robot does not squash, stretch or hop), and the game clips from clips_games.py
+(act_*, duel_*, sad, shrug, bow). 24 fps. Conventions: see assets/pipi3d/animate.py.
 
 Run after rig_alpha_mini.py (opens and re-saves out/alpha_mini.blend):
     "$BLENDER_PATH" --background --python assets/alpha_mini/animate_alpha_mini.py
@@ -18,11 +18,13 @@ import bpy
 
 HERE = Path(__file__).resolve().parent
 PIPI3D = HERE.parent / "pipi3d"
-if str(PIPI3D) not in sys.path:
-    sys.path.insert(0, str(PIPI3D))
+for path in (HERE, PIPI3D):
+    if str(path) not in sys.path:
+        sys.path.insert(0, str(path))
 
 import clips_core  # noqa: E402
 import clips_cute  # noqa: E402
+import clips_games  # noqa: E402
 from animate import FPS, bake_clip, reset_rig_animation, validate  # noqa: E402
 from clip_types import Clip, Pose, arms, merge, rest  # noqa: E402
 
@@ -75,7 +77,7 @@ WAKE_UP = Clip("wake_up", 40, False, {  # from the sleep slump: head up, look ar
     40: rest("spine", "head", *_ARMS),
 })
 
-CLIPS = [for_robot(c) for c in SHARED] + [HAPPY, CELEBRATE, WAKE_UP]
+CLIPS = [for_robot(c) for c in SHARED] + [HAPPY, CELEBRATE, WAKE_UP] + clips_games.CLIPS
 
 
 def main() -> None:
