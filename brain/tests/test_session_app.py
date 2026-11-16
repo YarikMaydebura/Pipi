@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
 from dataclasses import replace
@@ -13,7 +14,7 @@ import pytest
 from pipi_brain import session_app
 from pipi_brain.__main__ import EXIT_MISSING_KEY, EXIT_OK, main
 from pipi_brain.bodies.base import Body
-from pipi_brain.config import LoadedConfig
+from pipi_brain.config import ConfigError, LoadedConfig
 from pipi_brain.dialogue.llm import DialogueEngine
 from pipi_brain.fakes import (
     FakeBody,
@@ -206,3 +207,40 @@ def test_woz_flag_plugs_the_panel_server_into_the_session(monkeypatch: pytest.Mo
     seen = _run_main_with_fake_session(monkeypatch, ["--woz"])
     assert seen["woz"].func is serve_woz
     assert set(seen["woz"].keywords) == {"loaded"}
+
+
+async def test_session_loads_the_games_and_reports_the_bang_detector(
+    dev_config: LoadedConfig, tmp_path: Path
+) -> None:
+    loaded = config(dev_config, tmp_path)
+    await run_session(
+        loaded,
+        SessionAppOptions(participant_id="P06", typed_input=True),
+        deps_factory=fake_deps(["/end"]),
+        body_host_factory=lambda *_: FakeHost(),
+        emit=lambda _: None,
+    )
+    lines = (folder(loaded) / "events.jsonl").read_text("utf-8").splitlines()
+    start = json.loads(lines[0])["data"]
+    assert start["games"]["built"] == ["crocodile_robot", "quick_draw"]
+    assert start["games"]["bang_detector"] is False  # typed session: Enter is the bang
+    assert start["components"]["bang_detector"].startswith("not used (no microphone)")
+
+
+async def test_broken_games_file_stops_the_session_before_it_starts(
+    dev_config: LoadedConfig, tmp_path: Path
+) -> None:
+    broken = tmp_path / "games.yaml"
+    broken.write_text("good_sport: maybe\n", encoding="utf-8")
+    loaded = config(dev_config, tmp_path)
+    app = app_with(loaded.app, games={"games_file": broken})
+    host = FakeHost()
+    with pytest.raises(ConfigError, match="Invalid games config"):
+        await run_session(
+            replace(loaded, app=app),
+            SessionAppOptions(typed_input=True),
+            deps_factory=fake_deps(["/end"]),
+            body_host_factory=lambda *_: host,
+            emit=lambda _: None,
+        )
+    assert not host.started and not loaded.app.logging.dir.exists()  # nothing was started

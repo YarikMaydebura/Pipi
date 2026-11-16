@@ -2,13 +2,14 @@
 
 The robot opens with something it remembers (an identity cue, logged as
 ``memory_reference``), reacts with a gesture each turn, then: "Okay, I have a challenge for
-you!" -> GAME_CROCODILE.
+you!" -> GAME_CROCODILE (demo mode, ``session.first_game: null``: straight to GAME_MENU).
 """
 
 from __future__ import annotations
 
 from pipi_brain.phases.context import Next, PhaseContext
 from pipi_brain.phases.conversation import Heard, listen, reply
+from pipi_brain.protocol import Phase
 
 OPENER_EVENT = "<event: the break just started; open the chat with something you remember>"
 
@@ -17,7 +18,8 @@ async def run(ctx: PhaseContext) -> Next:
     timer = ctx.countdown("chat", ctx.session.chat_max_s)
     finished = await ctx.until(timer, lambda: _chat(ctx))
     await ctx.say_line("chat_transition", gesture="excited", expression="determined")
-    return Next("GAME_CROCODILE", "auto" if finished else "timer")
+    first_stop: Phase = "GAME_MENU" if ctx.session.first_game is None else "GAME_CROCODILE"
+    return Next(first_stop, "auto" if finished else "timer")
 
 
 async def _chat(ctx: PhaseContext) -> bool:

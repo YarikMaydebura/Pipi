@@ -16,4 +16,5 @@ woz:
 
 session:
   game_loop: true         # free game choice, loop until the participant says stop
+  first_game: null        # no fixed first game: after the chat straight to the game menu
   return_end_s: null      # the WoZ ends the session

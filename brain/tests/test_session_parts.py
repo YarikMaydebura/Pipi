@@ -175,7 +175,7 @@ def test_session_overrides_per_mode() -> None:
     dev = load_config(CONFIG_DIR / "dev.yaml").app.session
     study = load_config(CONFIG_DIR / "study.yaml").app.session
     demo = load_config(CONFIG_DIR / "demo.yaml").app.session
-    assert dev.game_placeholder_s < study.game_placeholder_s
+    assert dev.first_game == study.first_game == "crocodile_robot" and demo.first_game is None
     assert dev.return_end_s == 15 and study.return_end_s is None
     assert demo.game_loop and not study.game_loop and not dev.game_loop
 

@@ -150,6 +150,9 @@ async def _start_game(ctl: SessionController, command: WozCommand) -> CommandOut
     game = str(command.args["game"])
     if ctl.registry.info(game) is None:
         return _fail(f"unknown game {game}; known: {', '.join(sorted(ctl.registry.known))}")
+    if ctl.registry.implementation(game) is None:
+        built = ", ".join(built_game.id for built_game in ctl.registry.registered)
+        return _fail(f"{game} is not built yet (planned for M6); you can start: {built}")
     if ctl.state.phase not in BREAK_PHASES:
         return _fail("games only during the break (use trigger_migration_out first)")
     ctl.state.chosen_game = game
@@ -223,7 +226,12 @@ async def _play_motion(ctl: SessionController, command: WozCommand) -> CommandOu
     body, error = _body_arg(ctl, command)
     if error is not None:
         return _fail(error)
-    result = await ctl.bodies.play_motion(str(command.args["name"]), body)
+    name = str(command.args["name"])
+    result = await ctl.bodies.play_motion(name, body)
+    # A running game may be waiting for this motion: in the duel, duel_hit / duel_win played
+    # by hand score the round (docs/GAMES.md §3.2). The experimenter's decision counts even
+    # if the body did not move.
+    ctl.ctx.woz_signals.publish(name)
     return OK if result.ok else _fail(result.error or "body error")
 
 

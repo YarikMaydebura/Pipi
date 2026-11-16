@@ -25,6 +25,7 @@ from typing import Any, Protocol
 from pipi_brain.bodies.base import Body
 from pipi_brain.config import ConfigError, LoadedConfig
 from pipi_brain.dialogue.content import load_dialogue_content
+from pipi_brain.games.setup import check_session, load_game_setup
 from pipi_brain.logging_study import StudyLogger
 from pipi_brain.phases.clock import Clock, RealClock
 from pipi_brain.phases.controller import SessionController, SessionDeps
@@ -34,6 +35,7 @@ from pipi_brain.phases.terminal_commands import parse_terminal_command
 from pipi_brain.resilience import describe_error
 from pipi_brain.server import BodyServer, BodyServerError
 from pipi_brain.speech.audio_gate import AudioGate
+from pipi_brain.speech.bang import MicBangDetector
 from pipi_brain.speech.tts_cache import TtsCache
 from pipi_brain.voice_app import DepsFactory, SessionOptions, build_real_deps
 from pipi_brain.woz_api import WozBackend
@@ -103,12 +105,29 @@ async def run_session(
     content = load_dialogue_content(app.dialogue)
     content.persona(app.persona.default)  # unknown persona -> ConfigError before anything starts
     reading_text = _read_reading_text(app.session.reading_text_file)
+    game_setup = load_game_setup(app.games)  # games.yaml + motions.yaml: ConfigError if wrong
+    check_session(game_setup, app.session)
 
     gate = AudioGate(app.audio.gate_tail_ms)
     voice_options = SessionOptions(
         participant_id=options.participant_id, typed_input=options.typed_input
     )
     deps, health = await deps_factory(loaded, voice_options, gate)
+    # The duel's bang detector reads raw frames of the same microphone (never the audio gate).
+    bang_detector = (
+        MicBangDetector(
+            deps.audio_input.microphone,
+            threshold_db=game_setup.config.quick_draw.bang_threshold_db,
+            frame_timeout_s=app.audio.mic_frame_timeout_s,
+        )
+        if deps.audio_input is not None
+        else None
+    )
+    health["bang_detector"] = (
+        f"ok (threshold {game_setup.config.quick_draw.bang_threshold_db:g} dBFS)"
+        if bang_detector is not None
+        else "not used (no microphone): typing + Enter is the bang"
+    )
     logger = StudyLogger(app.logging.dir, options.participant_id)
     ref: dict[str, SessionController] = {}
 
@@ -172,9 +191,11 @@ async def run_session(
             gate=gate,
             clock=clock or RealClock(),
             tts_cache=tts_cache,
+            bang_detector=bang_detector,
         ),
         participant_id=options.participant_id,
         auto_start=auto_start,
+        game_setup=game_setup,
         reading_text=reading_text,
         start_data={
             "config_hash": loaded.config_hash,
@@ -193,6 +214,8 @@ async def run_session(
     )
     ref["ctl"] = controller
     emit(f"Session {logger.session_id}  (log: {logger.folder})")
+    for component, status in health.items():
+        emit(f"  {component:<13}: {status}")
     controller.log_session_start()  # first event, before the servers log anything
     async with AsyncExitStack() as stack:
         stack.push_async_callback(_close_audio, deps, session_input)

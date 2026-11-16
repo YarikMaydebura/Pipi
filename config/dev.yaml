@@ -8,7 +8,7 @@ robot:
 timers:
   focus_s: 30
   focus_precue_s: 20
-  break_max_s: 120
+  break_max_s: 240        # chat + 2 Crocodile rounds + menu + a best-of-3 duel fit in this
 
 logging:
   verbose: true
@@ -18,5 +18,4 @@ session:                  # short timers so a whole session takes ~3 minutes
   greeting_max_s: 60
   chat_max_s: 30
   game_menu_s: 10
-  game_placeholder_s: 8
   return_end_s: 15

@@ -58,17 +58,86 @@ lines:
     default: "Okay, I have a challenge for you!"
     calm: "Okay, I have a little challenge for you."
     witty: "Okay, enough small talk. I have a challenge for you."
-  game_crocodile_placeholder:
-    default: "Let's play Crocodile! This game is still being built, so imagine my best bird impression."
+  # --- Game menu (M4, docs/GAMES.md §4). {options} = the games that can be played right now,
+  # e.g. "Crocodile or a duel"; {game} = how the menu names a game, e.g. "a duel". ---
   game_menu:
-    default: "What do you want to play next? A duel, a staring contest, rock-paper-scissors, or you act and I guess?"
+    default: "What do you want to play next? {options}?"
+  game_menu_one:      # only one game can be played right now
+    default: "Do you want to play {options}?"
   game_menu_clarify:
-    default: "Sorry, which game? A duel, staring, rock-paper-scissors, or you act?"
+    default: "Sorry, which game? {options}?"
+  game_menu_list:
+    default: "I can play {options}. Which one?"
+  game_unavailable:
+    default: "I can't play that one yet. How about {options}?"
+  game_chosen:
+    default: "Okay, {game} it is!"
   game_choice_default:
-    default: "Let's do a duel then!"
-  game_placeholder:
-    default: "Let's play {game}! This game is still being built, so let's pretend it was epic."
+    default: "Let's do {game} then!"
+  game_unavailable_now:
+    default: "Hmm, I can't play that one right now. Let's do something else."
+  game_motion_failed:
+    default: "Hmm, my body does not want to move right now. Let's try something else."
+  game_stop_ok:
+    default: "Okay, no more games!"
+    calm: "Sure, that's enough games."
+  game_switch_ok:
+    default: "Sure, let's play something else!"
+
+  # --- Crocodile: the robot acts, you guess (game rules may be longer than 2 sentences).
+  # {answer} = the word as Pipi names it, e.g. "a bird". NEVER spoken while acting. ---
+  crocodile_rules:
+    default: "Let's play Crocodile! I'll act something out. I'm not allowed to talk, only show. You guess!"
+    calm: "Let's play Crocodile. I'll act something out without talking, only showing. You guess."
+    witty: "Let's play Crocodile! I act, and I'm not allowed to talk. Tragic, I know. You guess!"
+  crocodile_watch:
+    default: "Okay, watch closely!"
+  crocodile_next:
+    default: "Here comes the next one!"
+  crocodile_correct:
+    default: "Yes! I was {answer}! Well guessed!"
+    calm: "Yes, exactly. I was {answer}. Nicely guessed."
+    witty: "Yes! I was {answer}! My acting is clearly award-winning."
+  crocodile_reveal:
+    default: "Ooh, tricky one! I was {answer}!"
+    witty: "I was {answer}! I thought that was Oscar-worthy."
+
+  # --- Quick-draw duel. {n} = round number, {score} = e.g. "2 to 1". ---
+  quick_draw_rules:
+    default: "Duel time! When my eyes turn green, shout BANG! Fastest wins. Don't shoot early!"
+    calm: "A little duel. When my eyes turn green, shout BANG. The fastest wins, and don't shoot early."
+  quick_draw_rules_typed:
+    default: "Duel time! When my eyes turn green, press Enter! Fastest wins. Don't shoot early!"
+  quick_draw_rules_slow:
+    default: "Duel time, in slow motion! When my eyes turn green, say bang! Don't shoot early!"
+  quick_draw_slow_motion:
+    default: "Oops, my ears got confused. This is a slow-motion duel! When my eyes turn green, say bang!"
+  quick_draw_round:
+    default: "Round {n}. Ready?"
+  quick_draw_false_start:
+    default: "Too early! My eyes were not green yet, so this round is mine."
+    witty: "Too early, partner! My eyes were not green yet. That round is mine."
+  quick_draw_you_win:
+    default: "Argh, you got me!"
+    witty: "Argh! Hit by a human. How embarrassing."
+  quick_draw_robot_wins:
+    default: "Bang! Got you!"
+  quick_draw_too_slow:
+    default: "Too slow! Bang!"
+  quick_draw_no_contest:
+    default: "Hmm, that round does not count."
+  quick_draw_final_you:
+    default: "You win the duel, {score}! Fastest hands in the west."
+  quick_draw_final_robot:
+    default: "I win the duel, {score}! Good duel, partner."
+
+  # --- Goodbye / RETURN fallbacks (used only when the LLM fails). {moment} = a game moment
+  # from memory.game_events, already a full sentence ("You guessed that I was a bird ...!"). ---
   robot_goodbye:
     default: "That was fun! Okay, back to your text. See you on the screen!"
+  robot_goodbye_game:
+    default: "{moment} Okay, back to your text. See you on the screen!"
   return_fallback:
     default: "I'm back on your screen! Good luck with the questions."
+  return_fallback_game:
+    default: "I'm back on your screen! {moment} Good luck with the questions."

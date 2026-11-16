@@ -133,11 +133,13 @@ class TerminalSessionInput:
                     self._on_quit()
                 return
             text = line.strip()
-            if not text:
-                continue
             if text.startswith("/"):
                 await self._on_command(text)
             elif self.mode == "typed":
+                # An empty line (just Enter) is passed on too: it is the "bang" of the duel.
+                # Everything else ignores it (conversation.listen, allow_empty=False).
                 self._typed.put_nowait(TypedLine(text))
+            elif not text:
+                continue
             else:
                 self._emit("  (voice mode: speak to Pipi; type /help for experimenter commands)")

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import random
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -14,6 +15,7 @@ from pipi_brain.dialogue.content import DialogueContent
 from pipi_brain.dialogue.llm import DialogueEngine
 from pipi_brain.dialogue.prompts import ChatMessage
 from pipi_brain.fakes import (
+    FakeBangDetector,
     FakeBody,
     FakeClock,
     FakeSpeaker,
@@ -21,8 +23,11 @@ from pipi_brain.fakes import (
     FakeTextToSpeech,
     FakeUserInput,
 )
+from pipi_brain.games.base import GameOutcome
+from pipi_brain.games.runner import run_game
 from pipi_brain.logging_study import StudyLogger
 from pipi_brain.phases.controller import SessionController, SessionDeps
+from pipi_brain.phases.game_context import SessionGameContext
 from pipi_brain.protocol import BrainToWoz, WozCommand
 from pipi_brain.speech.audio_gate import AudioGate
 from pipi_brain.speech.tts_cache import TtsCache
@@ -55,6 +60,28 @@ class ScriptedChat:
         return self.default
 
 
+class ScriptedRng(random.Random):
+    """The games' randomness, scripted: every draw is predictable in a test.
+
+    ``uniform`` pops from ``uniforms`` (else the middle of the range), ``random`` pops from
+    ``randoms`` (else 0.99 = "the robot lets you win"), ``choice`` takes the first item.
+    """
+
+    def __init__(self, uniforms: Sequence[float] = (), randoms: Sequence[float] = ()) -> None:
+        super().__init__(0)
+        self.uniforms = list(uniforms)
+        self.randoms = list(randoms)
+
+    def uniform(self, a: float, b: float) -> float:
+        return self.uniforms.pop(0) if self.uniforms else (a + b) / 2
+
+    def random(self) -> float:
+        return self.randoms.pop(0) if self.randoms else 0.99
+
+    def choice(self, seq: Any) -> Any:
+        return seq[0]
+
+
 def app_with(app: AppConfig, **sections: dict[str, Any]) -> AppConfig:
     """Copy of ``app`` with some fields of some sections replaced, e.g. session={...}."""
     update = {
@@ -69,7 +96,6 @@ FAST = {
         "greeting_max_s": 60,
         "chat_max_s": 30,
         "game_menu_s": 10,
-        "game_placeholder_s": 8,
         "return_end_s": 5,
         "flight_s": 0.8,
         "robot_connect_wait_s": 0,
@@ -93,6 +119,8 @@ class Session:
     tts: FakeTextToSpeech
     speaker: FakeSpeaker
     logger: StudyLogger
+    rng: ScriptedRng = field(default_factory=ScriptedRng)
+    bang: FakeBangDetector | None = None
     pushed: list[BrainToWoz] = field(default_factory=list)
 
     async def run(self) -> dict[str, Any]:
@@ -136,6 +164,9 @@ class Session:
     def pipi_lines(self) -> list[str]:
         return [d.get("line_id", "") for d in self.data("turn") if d["speaker"] == "pipi"]
 
+    def pipi_said(self) -> list[str]:
+        return [d["text"] for d in self.data("turn") if d["speaker"] == "pipi"]
+
 
 def make_session(
     loaded: LoadedConfig,
@@ -150,8 +181,12 @@ def make_session(
     mode: str | None = None,
     tts_cache_dir: Path | None = None,
     bodies: dict[str, Any] | None = None,
+    bang: list[object] | None = None,
+    voice: bool = False,
+    rng: ScriptedRng | None = None,
     **overrides: dict[str, Any],
 ) -> Session:
+    """``bang``: script of a FakeBangDetector (implies a microphone session, ``voice``)."""
     sections = {name: dict(values) for name, values in FAST.items()}
     for name, values in overrides.items():
         sections[name] = {**sections.get(name, {}), **values}
@@ -161,7 +196,12 @@ def make_session(
     clock = FakeClock()
     pet = FakeBody(name="desktop_pet", connected=pet_connected)
     robot = FakeBody(name="fake_robot", connected=robot_connected)
-    user = FakeUserInput(script=list(script or []), clock=clock)
+    has_mic = voice or bang is not None
+    user = FakeUserInput(
+        script=list(script or []), clock=clock, mode="voice" if has_mic else "typed"
+    )
+    detector = FakeBangDetector(clock, list(bang)) if bang is not None else None
+    rng = rng or ScriptedRng()
     chat = ScriptedChat(list(llm or []))
     stt, tts, speaker = FakeSpeechToText(), FakeTextToSpeech(), FakeSpeaker()
     logger = StudyLogger(app.logging.dir, "P01")
@@ -191,11 +231,64 @@ def make_session(
             gate=AudioGate(0),
             clock=clock,
             tts_cache=cache,
+            bang_detector=detector,
+            rng=rng,
         ),
         participant_id="P01",
         auto_start=auto_start,
         emit=lambda _: None,
     )
-    session = Session(ctl, clock, pet, robot, user, chat, stt, tts, speaker, logger)
+    session = Session(
+        ctl, clock, pet, robot, user, chat, stt, tts, speaker, logger, rng=rng, bang=detector
+    )
     ctl.subscribe(session.pushed.append)
     return session
+
+
+@dataclass
+class GameTable:
+    """One game played directly (no phases around it), on the real session context."""
+
+    s: Session
+    ctx: SessionGameContext
+
+    async def play(self, game_id: str, meanwhile: Any = None) -> GameOutcome:
+        """Play one game; ``meanwhile`` (a coroutine, e.g. the experimenter) runs alongside."""
+        game = self.s.ctl.registry.implementation(game_id)
+        assert game is not None, f"{game_id} is not registered"
+        playing = run_game(game, self.ctx, registry=self.s.ctl.registry)
+        if meanwhile is None:
+            return await self.run(playing)
+        outcome, _ = await self.run(asyncio.gather(playing, meanwhile))
+        return outcome
+
+    async def run(self, work: Any) -> Any:
+        """Await ``work`` with virtual time running."""
+        jumper = asyncio.ensure_future(self.s.clock.autojump())
+        try:
+            return await asyncio.wait_for(work, REAL_TIMEOUT_S)
+        finally:
+            jumper.cancel()
+
+    def robot_did(self, *kinds: str) -> list[tuple[str, object]]:
+        """What the robot body was asked to do, e.g. robot_did("motion", "speak")."""
+        return [call for call in self.s.robot.calls if not kinds or call[0] in kinds]
+
+    def rounds(self) -> list[dict[str, Any]]:
+        return self.s.data("game_round")
+
+
+async def make_game_table(
+    loaded: LoadedConfig, content: DialogueContent, tmp_path: Path, **kw: Any
+) -> GameTable:
+    """A session whose robot body is already awake: ready to play a game on it."""
+    session = make_session(loaded, content, tmp_path, **kw)
+    table = GameTable(session, SessionGameContext(session.ctl.ctx))
+
+    async def no_announcement(_: Any) -> None:
+        return None
+
+    result = await table.run(session.ctl.bodies.migrate_out(no_announcement))
+    assert result.success
+    session.robot.calls.clear()
+    return table

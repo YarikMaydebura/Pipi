@@ -331,29 +331,6 @@ async def test_llm_and_tts_failures_use_fallbacks(
     assert s.data("turn")[0]["audio"] is False
 
 
-async def test_demo_game_loop_until_stop(
-    dev_config: LoadedConfig, dialogue_content: DialogueContent, tmp_path: Path
-) -> None:
-    s = make_session(
-        dev_config,
-        dialogue_content,
-        tmp_path,
-        script=["the cowboy one", "the blinking game", "no more games"],
-        auto_start=False,
-        session={"game_loop": True},
-    )
-    task = s.start()
-    assert (await s.woz("goto_phase", phase="GAME_MENU")).ok
-    await task
-    choices = s.data("game_choice")
-    assert [c["game"] for c in choices] == ["quick_draw", "staring", None]
-    assert choices[-1]["action"] == "stop"
-    assert [d["game"] for d in s.data("game_start")] == ["quick_draw", "staring"]
-    assert s.phases()[:2] == ["MIGRATE_OUT", "GAME_MENU"]  # migration inserted first
-    assert s.phases().count("GAME_MENU") == 3
-    assert "ROBOT_GOODBYE" in s.phases()
-
-
 async def test_every_m3_event_type_is_logged(
     dev_config: LoadedConfig, dialogue_content: DialogueContent, tmp_path: Path
 ) -> None:

@@ -9,6 +9,7 @@ pausable countdowns, and returns which phase comes next. The controller does the
 from __future__ import annotations
 
 import asyncio
+import random
 import string
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -21,6 +22,7 @@ from pipi_brain.dialogue.content import DialogueContent
 from pipi_brain.dialogue.llm import DialogueEngine
 from pipi_brain.dialogue.prompts import PromptBody
 from pipi_brain.games.registry import GameRegistry
+from pipi_brain.games.setup import GameSetup
 from pipi_brain.memory import Memory, MemoryUpdates
 from pipi_brain.phases.clock import Clock, cancel_and_wait
 from pipi_brain.phases.events import SessionEvents
@@ -29,7 +31,9 @@ from pipi_brain.phases.inputs import UserInputSource
 from pipi_brain.phases.state import SessionState
 from pipi_brain.phases.timers import Countdown, PauseState, SafePoints
 from pipi_brain.phases.voice import SayMeta, Voice
+from pipi_brain.phases.woz_signals import WozSignals
 from pipi_brain.protocol import Expression, Phase
+from pipi_brain.speech.bang import BangDetector
 from pipi_brain.speech.base import SpeechToText
 
 T = TypeVar("T")
@@ -63,10 +67,17 @@ class PhaseContext:
     clock: Clock
     pause: PauseState
     safe: SafePoints
-    registry: GameRegistry
+    games: GameSetup  # games.yaml, motions.yaml and the registry of built games
+    rng: random.Random  # injected, so tests of the games are deterministic
+    woz_signals: WozSignals  # motions the WoZ plays by hand (a game may wait for one)
     push_state: Callable[[], None]
     emit: Callable[[str], None]
     reading_text: str | None = None
+    bang_detector: BangDetector | None = None  # quick-draw duel; None = typed / slow motion
+
+    @property
+    def registry(self) -> GameRegistry:
+        return self.games.registry
 
     @property
     def session(self) -> SessionConfig:

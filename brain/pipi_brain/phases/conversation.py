@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Literal
 
@@ -24,7 +25,7 @@ from pipi_brain.phases.context import PhaseContext
 from pipi_brain.phases.inputs import TypedLine, UserInput
 from pipi_brain.phases.timers import Countdown
 from pipi_brain.phases.voice import SayMeta
-from pipi_brain.protocol import Turn
+from pipi_brain.protocol import EyeState, Turn
 from pipi_brain.resilience import timed_call
 from pipi_brain.speech.audio_utils import samples_to_wav
 from pipi_brain.speech.base import Utterance
@@ -35,6 +36,7 @@ class Heard:
     text: str
     start: float  # perf_counter when the input arrived (end of speech / typed line)
     stt_ms: int | None
+    typed: bool = False
 
 
 @dataclass(frozen=True)
@@ -42,12 +44,28 @@ class NoAnswer:
     reason: Literal["silence", "unclear"]
 
 
-async def listen(ctx: PhaseContext, *, silence_s: float | None, reprompt: bool) -> Heard | NoAnswer:
-    """Wait for the participant. ``silence_s`` None = wait as long as the phase lasts."""
+async def listen(
+    ctx: PhaseContext,
+    *,
+    silence_s: float | None,
+    reprompt: bool,
+    clarify: bool = True,
+    eyes: EyeState | None = "listening",
+    thinking: bool = True,
+    allow_empty: bool = False,
+) -> Heard | NoAnswer:
+    """Wait for the participant. ``silence_s`` None = wait as long as the phase lasts.
+
+    Games can listen quietly: ``clarify=False`` never speaks ("say that again?") and returns
+    ``NoAnswer("unclear")`` at once; ``eyes`` keeps e.g. the determined acting eyes (None =
+    do not touch the eyes); ``thinking=False`` shows no thinking eyes afterwards;
+    ``allow_empty=True`` also returns an empty typed line (just Enter: the duel's "bang").
+    """
     reprompted = False
-    clarified = False
+    clarified = not clarify
     while True:
-        await ctx.bodies.set_eyes("listening")
+        if eyes is not None:
+            await ctx.bodies.set_eyes(eyes)
         got = await _wait_for_input(ctx, silence_s)
         if got is None:
             waited = silence_s or 0.0
@@ -58,11 +76,15 @@ async def listen(ctx: PhaseContext, *, silence_s: float | None, reprompt: bool) 
                 continue
             ctx.log("silence_reprompt", {"waited_s": waited, "action": "default"})
             return NoAnswer("silence")
+        if isinstance(got, TypedLine) and not got.text and not allow_empty:
+            continue  # just Enter in a typed session: nothing was said
         start = time.perf_counter()
-        ctx.voice.thinking_soon()
+        if thinking:
+            ctx.voice.thinking_soon()
         if isinstance(got, TypedLine):
-            _user_turn(ctx, got.text, input_mode="typed")
-            return Heard(got.text, start, None)
+            if got.text:  # just Enter (the duel's bang) is not something the participant said
+                _user_turn(ctx, got.text, input_mode="typed")
+            return Heard(got.text, start, None, typed=True)
         text, stt_ms, problem = await _transcribe(ctx, got)
         if text is not None:
             _user_turn(
@@ -86,6 +108,7 @@ async def reply(
     *,
     heard: Heard | None = None,
     fallback_line: str = "llm_fallback",
+    fallback_values: Mapping[str, str] | None = None,
     extra_instruction: str | None = None,
     gesture: str | None = None,
 ) -> DialogueTurn:
@@ -106,7 +129,8 @@ async def reply(
         history_turns=ctx.app.dialogue.history_turns,
         user_text=user_text,
     )
-    result = await ctx.dialogue.respond(messages, ctx.line(fallback_line))
+    values = dict(fallback_values or {})
+    result = await ctx.dialogue.respond(messages, ctx.line(fallback_line, **values))
     for attempt, error in enumerate(result.errors, start=1):
         ctx.log(
             "llm_error",
@@ -131,7 +155,8 @@ async def reply(
         llm_ms=result.llm_ms,
         llm_attempts=result.attempts,
     )
-    await ctx.voice.say(turn.say, meta, cacheable=result.fallback_used)
+    # A fallback line filled with session details (a game moment) is not worth caching.
+    await ctx.voice.say(turn.say, meta, cacheable=result.fallback_used and not values)
     return turn
 
 

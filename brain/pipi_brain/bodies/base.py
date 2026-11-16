@@ -83,6 +83,14 @@ class Body(Protocol):
 
     async def show_caption(self, text: str | None) -> BodyResult: ...
 
+    async def stop(self) -> BodyResult:
+        """Emergency stop: end speech audio and motion at once, hide the caption, idle eyes.
+
+        The body stays active. Returns quickly (short timeout); not ok = the caller falls
+        back to the old workaround (empty speak + no caption + idle eyes).
+        """
+        ...
+
     def health(self) -> str:
         """Short status for health checks and the terminal, e.g. 'connected (0.1.0)'."""
         ...

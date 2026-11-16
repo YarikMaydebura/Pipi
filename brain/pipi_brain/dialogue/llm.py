@@ -9,9 +9,9 @@ It never raises; every failed attempt is reported in ``DialogueResult.errors`` f
 from __future__ import annotations
 
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Generic, Protocol, TypeVar
 
 from pipi_brain.config import ReasoningEffort
 from pipi_brain.dialogue.prompts import ChatMessage
@@ -20,6 +20,8 @@ from pipi_brain.resilience import elapsed_ms_since, timed_call
 
 if TYPE_CHECKING:
     from openai import AsyncOpenAI
+
+T = TypeVar("T")
 
 
 class LlmError(Exception):
@@ -79,27 +81,58 @@ class DialogueResult:
     llm_ms: int  # wall time of all attempts together
 
 
+@dataclass(frozen=True)
+class JsonResult(Generic[T]):
+    """Outcome of ``DialogueEngine.ask``: ``value`` is None when every attempt failed."""
+
+    value: T | None
+    attempts: int
+    errors: tuple[str, ...]  # one entry per failed attempt, already secret-free
+    llm_ms: int
+
+
 class DialogueEngine:
     def __init__(self, model: ChatModel, *, timeout_s: float, retries: int) -> None:
         self._model = model
         self._timeout_s = timeout_s
         self._retries = retries
 
-    async def respond(self, messages: Sequence[ChatMessage], fallback_line: str) -> DialogueResult:
+    async def ask(
+        self,
+        messages: Sequence[ChatMessage],
+        parse: Callable[[str], T],
+        *,
+        timeout_s: float | None = None,
+        retries: int | None = None,
+    ) -> JsonResult[T]:
+        """One JSON answer, validated by ``parse`` (raises InvalidModelOutput when wrong).
+
+        Timeout per attempt; an error or an invalid answer is retried ``retries`` times.
+        Never raises: the caller checks ``value`` and uses its own fallback.
+        """
         start = time.perf_counter()
         errors: list[str] = []
         attempts = 0
-        for _ in range(1 + self._retries):
+        limit_s = self._timeout_s if timeout_s is None else timeout_s
+        for _ in range(1 + (self._retries if retries is None else retries)):
             attempts += 1
-            outcome = await timed_call(lambda: self._model.complete_json(messages), self._timeout_s)
+            outcome = await timed_call(lambda: self._model.complete_json(messages), limit_s)
             if not outcome.ok or outcome.value is None:
                 errors.append(outcome.error or "no answer")
                 continue
             try:
-                turn = parse_dialogue_turn(outcome.value)
+                value = parse(outcome.value)
             except InvalidModelOutput as exc:
                 errors.append(f"invalid output: {exc}")
                 continue
-            return DialogueResult(turn, False, attempts, tuple(errors), elapsed_ms_since(start))
+            return JsonResult(value, attempts, tuple(errors), elapsed_ms_since(start))
+        return JsonResult(None, attempts, tuple(errors), elapsed_ms_since(start))
+
+    async def respond(self, messages: Sequence[ChatMessage], fallback_line: str) -> DialogueResult:
+        result = await self.ask(messages, parse_dialogue_turn)
+        if result.value is not None:
+            return DialogueResult(
+                result.value, False, result.attempts, result.errors, result.llm_ms
+            )
         fallback = DialogueTurn(say=fallback_line, expression="idle", gesture="none")
-        return DialogueResult(fallback, True, attempts, tuple(errors), elapsed_ms_since(start))
+        return DialogueResult(fallback, True, result.attempts, result.errors, result.llm_ms)

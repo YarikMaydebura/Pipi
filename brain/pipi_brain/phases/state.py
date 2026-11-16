@@ -20,6 +20,8 @@ class SessionState:
     phase_timer: Countdown | None = None  # shown in the WoZ panel (focus, chat, ...)
     break_timer: Countdown | None = None  # break_max_s, from MIGRATE_OUT to MIGRATE_IN
     chosen_game: str | None = None
+    last_game: str | None = None  # the game played last ("again" in the menu means this one)
+    goodbye_said: str | None = None  # the robot's goodbye, so RETURN recalls something else
     focus_extra_s: float = 0.0  # extend_focus that arrived before the timer started
     after_migration: Phase | None = None  # WoZ jumped across bodies: where to go afterwards
     break_on_pet: bool = False  # robot unavailable: the break happens on the screen

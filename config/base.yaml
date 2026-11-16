@@ -19,6 +19,8 @@ bodies:                   # WebSocket bodies (desktop pet, fake robot); seconds
   speech_done_margin_s: 3 # waiting for speech_done = audio length + this
   caption_s_per_char: 0.07  # no audio: caption reading time estimate (pet uses 60 ms/char)
   connect_wait_s: 15      # `--voice-loop --body pet`: wait this long for the pet at start
+  stop_timeout_s: 1       # emergency stop: a body must ack `stop` within this (else the old
+                          # workaround: empty speak + no caption + idle eyes)
 
 robot:
   body: fake_robot        # fake_robot | alpha_mini
@@ -102,7 +104,7 @@ session:                  # full session flow (docs/INTERACTION_FLOW.md); second
   chat_max_s: 45
   game_menu_s: 15         # no clear game choice within this -> default_game
   default_game: quick_draw
-  game_placeholder_s: 60  # M3: games are placeholders that last this long (M4 replaces them)
+  first_game: crocodile_robot  # GAME_CROCODILE plays this first; null = straight to the menu
   game_loop: false        # true (demo): after a game, back to the menu until "stop"
   return_end_s: 30        # RETURN -> END after this; null = the WoZ ends the session
   flight_s: 0.8           # silence between Pipi jumping off the screen and the robot waking up
@@ -116,3 +118,7 @@ tts_cache:                # fixed lines' speech cached on disk -> they play inst
   dir: ../cache/tts       # gitignored; key = hash(model, voice, text); fixed lines only
   prewarm_timeout_s: 60   # background synthesis of all fixed lines at session start
   prewarm_concurrency: 4
+
+games:                    # game content (docs/GAMES.md); validated at startup
+  games_file: games.yaml  # word lists, rounds, timings, the bang threshold, the good-sport setting
+  motions_file: motions.yaml  # canonical motion names -> what each body plays

@@ -26,6 +26,7 @@ SETTINGS = BodiesConfig(
     speech_done_margin_s=0.1,
     caption_s_per_char=0.001,
     connect_wait_s=0.05,
+    stop_timeout_s=0.05,
 )
 HELLO = Hello(body="desktop_pet", version="0.1.0")
 AUDIO = SpeechAudio(pcm16=b"\x01\x00" * 2400, sample_rate=24000)  # 0.1 s
@@ -201,3 +202,24 @@ def test_wav_encoding_and_caption_estimate() -> None:
     assert len(wav) == 44 + len(AUDIO.pcm16)
     assert caption_seconds("short", 0.07) == pytest.approx(1.5)
     assert caption_seconds("x" * 100, 0.07) == pytest.approx(7.0)
+
+
+async def test_stop_sends_the_stop_message_and_waits_for_its_ack() -> None:
+    pet, link, log = await connected_pet()
+    result = await pet.stop()
+    assert result.ok
+    assert link.sent[-1]["type"] == "stop" and set(link.sent[-1]) == {"type", "id", "ts"}
+    outgoing = [e for e in log.of("body_message") if e["direction"] == "out"]
+    assert outgoing[-1]["type"] == "stop"
+
+
+async def test_stop_without_an_ack_fails_fast_and_is_not_resent() -> None:
+    pet, link, log = await connected_pet(ack=False)
+    sent_before = len(link.sent)
+    result = await pet.stop()
+    assert not result.ok and result.timed_out
+    assert result.error == "no ack within 0.05 s"  # stop_timeout_s, not the normal ack timeout
+    assert [m["type"] for m in link.sent[sent_before:]] == ["stop"]  # no retry
+    assert log.of("body_error")[-1]["message_type"] == "stop"
+    missing, _, _ = make_pet()
+    assert (await missing.stop()).error == "not connected"

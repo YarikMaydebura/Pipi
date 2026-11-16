@@ -10,7 +10,8 @@ Timing rules (config ``bodies``):
 - ``activate`` / ``deactivate`` are acked by the body when the animation has FINISHED, so they
   wait longer (``migration_timeout_s``),
 - ``speak`` waits for the ack, then for ``speech_done`` (audio length, or an estimated reading
-  time for captions only, plus ``speech_done_margin_s``).
+  time for captions only, plus ``speech_done_margin_s``),
+- ``stop`` (emergency stop) waits only ``stop_timeout_s`` for its ack and is never resent.
 
 Audio goes to the body as a base64 WAV file, which every browser decodes with Web Audio.
 """
@@ -43,6 +44,7 @@ from pipi_brain.protocol import (
     Hello,
     Motion,
     Speak,
+    Stop,
 )
 from pipi_brain.speech.audio_utils import pcm16_to_wav
 from pipi_brain.speech.base import SpeechAudio
@@ -129,6 +131,10 @@ class WebSocketBody:
             timeout_s=self._settings.ack_timeout_s,
             retries=self._settings.ack_retries,
         )
+
+    async def stop(self) -> BodyResult:
+        """Emergency stop: the body acks ``stop`` as soon as audio and motion have ended."""
+        return await self.channel.request(Stop(), timeout_s=self._settings.stop_timeout_s)
 
     async def speak(
         self, text: str, audio: SpeechAudio | None, expression: Expression = "idle"

@@ -19,6 +19,7 @@ from pipi_brain.bodies.base import NOT_CONNECTED, BodyResult, Entrance, Exit, Sp
 from pipi_brain.dialogue.prompts import ChatMessage
 from pipi_brain.phases.inputs import TypedLine
 from pipi_brain.protocol import Expression, EyeState
+from pipi_brain.speech.bang import Bang
 from pipi_brain.speech.base import (
     AudioFrame,
     MicrophoneError,
@@ -184,6 +185,7 @@ class FakeBody:
     name: str = "desktop_pet"
     connected: bool = True
     speak_delivered: bool = True
+    stop_ok: bool = True  # False = the body does not ack `stop` (old workaround is used)
     on_speak: Callable[[], None] | None = None  # e.g. check the audio gate during speech
     calls: list[tuple[str, object]] = field(default_factory=list)
     spoken: list[tuple[str, SpeechAudio | None, str]] = field(default_factory=list)
@@ -227,6 +229,12 @@ class FakeBody:
 
     async def set_calm(self, on: bool) -> BodyResult:
         return self._result("calm", on)
+
+    async def stop(self) -> BodyResult:
+        result = self._result("stop", None)
+        if result.ok and not self.stop_ok:
+            return BodyResult(ok=False, error="no ack within 1 s", timed_out=True)
+        return result
 
     def health(self) -> str:
         return "connected (fake)" if self.connected else NOT_CONNECTED
@@ -287,11 +295,41 @@ class FakeClock:
 
 
 @dataclass
+class FakeBangDetector:
+    """Scripted bangs for the duel, on the session's (virtual) clock.
+
+    One item per ``wait_for_bang`` call: seconds after arming until the bang, ``None`` (the
+    participant never shoots: waits until cancelled) or an exception (e.g.
+    ``BangDetectorError``). When the script runs out, nobody shoots.
+    """
+
+    clock: FakeClock
+    script: list[object] = field(default_factory=list)
+    level_db: float = -6.0
+    armed: int = 0
+
+    def now(self) -> float:
+        return self.clock.now()
+
+    async def wait_for_bang(self) -> Bang:
+        self.armed += 1
+        item = self.script.pop(0) if self.script else None
+        if isinstance(item, BaseException):
+            await asyncio.sleep(0)
+            raise item
+        if item is None:
+            await asyncio.Event().wait()  # never shoots (until cancelled)
+        await self.clock.sleep(float(item))  # type: ignore[arg-type]
+        return Bang(at=self.clock.now(), level_db=self.level_db)
+
+
+@dataclass
 class FakeUserInput:
     """What the participant says in a session test, one item per listening turn.
 
     Items: text (typed line, answered at once), an ``Utterance`` (goes through STT),
-    ``(text, delay_s)`` (answer after a virtual delay) or ``None`` (stays silent: this
+    ``(item, delay_s)`` (answer after a virtual delay; if the listening turn ends earlier, the
+    answer comes in a later turn after the rest of the delay) or ``None`` (stays silent: this
     listening turn only ends by a timeout). When the script runs out, the participant is silent.
     """
 
@@ -309,7 +347,13 @@ class FakeUserInput:
         if isinstance(item, tuple):
             text, delay_s = item
             if self.clock is not None:
-                await self.clock.sleep(float(delay_s))
+                started = self.clock.now()
+                try:
+                    await self.clock.sleep(float(delay_s))
+                except asyncio.CancelledError:
+                    left = float(delay_s) - (self.clock.now() - started)
+                    self.script.insert(0, (text, max(0.0, left)))  # still about to say it
+                    raise
             item = text
         if isinstance(item, str):
             return TypedLine(item)

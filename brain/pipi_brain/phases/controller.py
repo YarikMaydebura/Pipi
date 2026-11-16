@@ -17,6 +17,7 @@ How it works, in plain words:
 from __future__ import annotations
 
 import asyncio
+import random
 import time
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
@@ -27,7 +28,7 @@ from pipi_brain.bodies.manager import BodyManager, ManagerSettings
 from pipi_brain.config import AppConfig
 from pipi_brain.dialogue.content import DialogueContent
 from pipi_brain.dialogue.llm import DialogueEngine
-from pipi_brain.games.registry import GameRegistry
+from pipi_brain.games.setup import GameSetup, check_session, load_game_setup
 from pipi_brain.latency import summarize_turns
 from pipi_brain.logging_study import StudyLogger
 from pipi_brain.memory import Memory
@@ -57,9 +58,11 @@ from pipi_brain.phases.inputs import UserInputSource
 from pipi_brain.phases.state import SessionState
 from pipi_brain.phases.timers import Countdown, PauseState, SafePoints
 from pipi_brain.phases.voice import Voice, VoiceSettings
+from pipi_brain.phases.woz_signals import WozSignals
 from pipi_brain.protocol import ActiveBody, Phase, StateUpdate, WozCommand
 from pipi_brain.resilience import describe_error
 from pipi_brain.speech.audio_gate import AudioGate
+from pipi_brain.speech.bang import BangDetector
 from pipi_brain.speech.base import Speaker, SpeechToText, TextToSpeech
 from pipi_brain.speech.tts_cache import TtsCache
 from pipi_brain.woz_api import CommandOutcome, WozListener
@@ -81,6 +84,8 @@ class SessionDeps:
     gate: AudioGate
     clock: Clock = RealClock()
     tts_cache: TtsCache | None = None
+    bang_detector: BangDetector | None = None  # quick-draw duel; None = typed / slow motion
+    rng: random.Random | None = None  # games' randomness; tests pass a seeded one
 
 
 @dataclass(frozen=True)
@@ -101,7 +106,7 @@ class SessionController:
         deps: SessionDeps,
         participant_id: str,
         auto_start: bool,
-        registry: GameRegistry | None = None,
+        game_setup: GameSetup | None = None,
         reading_text: str | None = None,
         start_data: Mapping[str, Any] | None = None,
         emit: Callable[[str], None] = print,
@@ -109,7 +114,10 @@ class SessionController:
         self.app = app
         self.content = content
         self.participant_id = participant_id
-        self.registry = registry or GameRegistry()
+        # games.yaml + motions.yaml + the built games; a problem is a ConfigError right here
+        self.games = game_setup or load_game_setup(app.games)
+        check_session(self.games, app.session)
+        self.registry = self.games.registry
         self.auto_start = auto_start
         self._deps = deps
         self._clock = deps.clock
@@ -168,10 +176,13 @@ class SessionController:
             clock=self._clock,
             pause=self.pause,
             safe=self.safe,
-            registry=self.registry,
+            games=self.games,
+            rng=deps.rng or random.Random(),
+            woz_signals=WozSignals(),
             push_state=self.push_state,
             emit=emit,
             reading_text=reading_text,
+            bang_detector=deps.bang_detector,
         )
         self._directives: asyncio.Queue[Directive] = asyncio.Queue()
         self._phase_task: asyncio.Task[Next] | None = None
@@ -509,6 +520,13 @@ class SessionController:
             "persona_options": list(self.content.personas),
             "auto_start": self.auto_start,
             "game_loop": app.session.game_loop,
+            "games": {
+                "built": [game.id for game in self.registry.registered],
+                "first_game": app.session.first_game,
+                "default_game": app.session.default_game,
+                "good_sport": self.games.config.good_sport,
+                "bang_detector": self._deps.bang_detector is not None,
+            },
             "cue_checklist": app.cues.model_dump(),
             **self._start_data,
         }

@@ -197,9 +197,22 @@ async def test_stop_all_interrupts_every_connected_body() -> None:
     mgr.stop_all()
     for _ in range(5):
         await asyncio.sleep(0)
+    assert pet.calls == [("stop", None)]  # the protocol's stop message, nothing else needed
+    assert robot.calls == []
+
+
+async def test_stop_all_falls_back_to_the_workaround_when_stop_is_not_acked() -> None:
+    pet = FakeBody(name="desktop_pet", stop_ok=False)
+    mgr, log, _ = manager({"desktop_pet": pet})
+    mgr.stop_all()
+    for _ in range(5):
+        await asyncio.sleep(0)
+    assert pet.calls[0] == ("stop", None)
     assert ("speak", "") in pet.calls and ("caption", None) in pet.calls
     assert ("eyes", "idle") in pet.calls
-    assert robot.calls == []
+    fallback = log.of("body_fallback")[0]
+    assert fallback["action"] == "stop" and fallback["fallback"] == "empty_speak"
+    assert mgr.health()["desktop_pet"].last_error == "no ack within 1 s"
 
 
 async def test_commands_on_missing_bodies_fail_softly() -> None:

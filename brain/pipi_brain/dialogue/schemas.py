@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any, Literal, get_args
+from typing import Any, Literal, TypeVar, get_args
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
@@ -27,6 +27,7 @@ MAX_SAY_CHARS = 400
 MAX_HELP_TERM_CHARS = 80  # ~2-3 spoken sentences; longer means the model ignored the rules
 
 _CODE_FENCE = re.compile(r"^```(?:json)?\s*|\s*```$", re.IGNORECASE)
+ModelT = TypeVar("ModelT", bound=BaseModel)
 
 
 class InvalidModelOutput(Exception):
@@ -72,8 +73,8 @@ class DialogueTurn(BaseModel):
         return {} if value is None else value
 
 
-def parse_dialogue_turn(raw: str) -> DialogueTurn:
-    """Parse the model's text into a DialogueTurn or raise InvalidModelOutput."""
+def parse_json_object(raw: str) -> dict[str, Any]:
+    """The model's text as a JSON object (code fences removed) or raise InvalidModelOutput."""
     text = _CODE_FENCE.sub("", raw.strip())
     try:
         data = json.loads(text)
@@ -81,11 +82,22 @@ def parse_dialogue_turn(raw: str) -> DialogueTurn:
         raise InvalidModelOutput(f"not valid JSON ({exc.msg} at char {exc.pos})") from exc
     if not isinstance(data, dict):
         raise InvalidModelOutput(f"expected a JSON object, got {type(data).__name__}")
+    return data
+
+
+def parse_model(raw: str, model: type[ModelT]) -> ModelT:
+    """Parse the model's text into ``model`` (a pydantic class) or raise InvalidModelOutput."""
+    data = parse_json_object(raw)
     try:
-        return DialogueTurn.model_validate(data)
+        return model.model_validate(data)
     except ValidationError as exc:
         problems = "; ".join(
             f"{'.'.join(str(p) for p in err['loc']) or 'root'}: {err['msg']}"
             for err in exc.errors()
         )
         raise InvalidModelOutput(f"schema mismatch: {problems}") from exc
+
+
+def parse_dialogue_turn(raw: str) -> DialogueTurn:
+    """Parse the model's text into a DialogueTurn or raise InvalidModelOutput."""
+    return parse_model(raw, DialogueTurn)

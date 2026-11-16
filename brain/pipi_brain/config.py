@@ -53,6 +53,8 @@ PATH_FIELDS: tuple[tuple[str, str], ...] = (
     ("woz", "web_dist"),
     ("session", "reading_text_file"),
     ("tts_cache", "dir"),
+    ("games", "games_file"),
+    ("games", "motions_file"),
 )
 MAX_EXTENDS_DEPTH = 3
 
@@ -84,6 +86,7 @@ class BodiesConfig(_Section):
     speech_done_margin_s: float = Field(ge=0)  # speech_done wait = audio length + this
     caption_s_per_char: float = Field(gt=0)  # no-audio speech: estimated reading time
     connect_wait_s: float = Field(ge=0)  # `--body pet`: wait this long for the pet at start
+    stop_timeout_s: float = Field(default=1.0, gt=0)  # emergency `stop` must be acked within this
 
 
 class RobotConfig(_Section):
@@ -208,7 +211,9 @@ class SessionConfig(_Section):
     chat_max_s: float = Field(gt=0)
     game_menu_s: float = Field(gt=0)  # no clear choice within this -> default_game
     default_game: str = Field(min_length=1)  # id from games/registry.py
-    game_placeholder_s: float = Field(gt=0)  # M3 placeholder games last this long
+    # GAME_CROCODILE plays this game first (study: always crocodile_robot); null = straight to
+    # the menu (demo: any game first)
+    first_game: str | None = Field(min_length=1)
     game_loop: bool  # demo: GAME_CHOSEN -> GAME_MENU until the participant says stop
     return_end_s: float | None = Field(default=None, gt=0)  # RETURN -> END; null = WoZ ends
     flight_s: float = Field(ge=0, le=5)  # silence between jump_out and the robot waking up
@@ -216,6 +221,13 @@ class SessionConfig(_Section):
     thinking_delay_ms: int = Field(ge=0, le=5000)  # thinking eyes if a reply takes longer
     health_poll_s: float = Field(gt=0)  # body health check interval (WoZ state + alerts)
     reading_text_file: Path | None = None  # FOCUS word help context (study text, M6)
+
+
+class GamesFilesConfig(_Section):
+    """Where the game content lives (loaded and validated by ``games/setup.py``)."""
+
+    games_file: Path  # word lists, rounds, timings, thresholds (docs/GAMES.md §6)
+    motions_file: Path  # canonical motion names -> what each body plays (docs/GAMES.md §2)
 
 
 class TtsCacheConfig(_Section):
@@ -246,6 +258,7 @@ class AppConfig(_Section):
     woz: WozConfig
     session: SessionConfig
     tts_cache: TtsCacheConfig
+    games: GamesFilesConfig
 
 
 class Secrets(_Section):

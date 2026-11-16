@@ -169,9 +169,10 @@ class BodyManager:
     def stop_all(self) -> None:
         """Emergency stop: every connected body stops talking and moving, right now.
 
-        There is no stop message in the protocol yet: a body's ``stop()`` is used if it has
-        one; otherwise an empty ``speak`` (which interrupts the current speech on the pet),
-        no caption and idle eyes. Runs in the background so the caller never waits.
+        Each body gets ``stop()`` (the protocol's ``stop`` message, short ack timeout). Only
+        if a body does not confirm it, the old workaround is used: an empty ``speak`` (which
+        interrupts the current speech on the pet), no caption and idle eyes.
+        Runs in the background so the caller never waits.
         """
         for body in self._bodies.values():
             if body.connected:
@@ -179,12 +180,19 @@ class BodyManager:
                 self._background.add(task)
                 task.add_done_callback(self._background.discard)
 
-    @staticmethod
-    async def _stop_one(body: Body) -> None:
-        stop = getattr(body, "stop", None)
-        if callable(stop):
-            await stop()
+    async def _stop_one(self, body: Body) -> None:
+        result = self._note(body.name, await body.stop())
+        if result.ok:
             return
+        self._log(
+            "body_fallback",
+            {
+                "body": body.name,
+                "action": "stop",
+                "error": result.error,
+                "fallback": "empty_speak",
+            },
+        )
         await asyncio.gather(
             body.speak("", None, "idle"),
             body.show_caption(None),

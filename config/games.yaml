@@ -1,0 +1,62 @@
+# Games (docs/GAMES.md). Loaded and validated by brain/pipi_brain/games/config.py; a typo or
+# an unknown key stops the brain at startup with a readable message.
+# Motion names must exist in motions.yaml (also checked at startup).
+
+good_sport: true          # the robot loses on purpose fairly often (per-game *_win_chance);
+                          # false = it always plays to win. Fun beats fairness.
+between_rounds_s: 2.5     # after a round Pipi listens this long for "stop" / "another game";
+                          # silence, "again", "yes" = next round. 0 = no listening window
+llm_timeout_s: 4          # game LLM calls (word pick, guess judge, game intent); then the fallback
+llm_retries: 0            # extra attempts before the fallback (0 = fall back at once: no dead air)
+
+crocodile:                # crocodile_robot: the robot acts, the participant guesses
+  rounds_study: 2         # study and dev mode
+  rounds_demo: 3          # demo mode
+  round_timeout_s: 30     # no correct guess within this -> reveal
+  hint_after_wrong: 2     # wrong guesses before the hint (the motion again)
+  max_wrong_guesses: 3    # wrong guesses before the reveal
+  repeat_motion_every_s: 6  # while nobody guesses, the robot shows the motion again
+  reaction_pause_s: 1.2   # time for a nod / head shake before the acting motion plays again
+  llm_picks_word: true    # LLM chooses among the unused words (while Pipi says the intro line);
+                          # false or LLM failure -> random
+  keyword_shortcut: true  # a guess that contains the word or a synonym is correct at once
+                          # (no LLM call); false = always ask the LLM first
+  # The ONLY words the robot acts. `motion`: a name from motions.yaml. `synonyms`: also correct.
+  # `close`: nearly right (encouraging nod). `say`: how Pipi names it (default: "a <word>").
+  words:
+    - {word: bird, synonyms: [eagle, chicken, flying, fly, parrot, wings], close: [plane, airplane, butterfly, bat], motion: act_bird}
+    - {word: boxer, synonyms: [boxing, fighter, punching, punch, fight, fighting], close: [karate, kung fu, wrestler], motion: act_boxer}
+    - {word: swimmer, synonyms: [swimming, swim, swims], close: [fish, water, diving, diver], motion: act_swimmer}
+    - {word: dancer, synonyms: [dancing, dance, ballet, ballerina, disco], close: [party, music], motion: act_dancer}
+    - {word: robot, synonyms: [android, machine, robots], close: [zombie], motion: act_robot}
+    - {word: sleeping, synonyms: [sleep, asleep, sleeper, tired, nap, napping, snoring], close: [bed, yawning, night], motion: act_sleeping, say: someone sleeping}
+    - {word: superhero, synonyms: [superman, hero, flying hero, supergirl, batman], close: [cape], motion: act_superhero}
+    - {word: drummer, synonyms: [drums, drumming, drum], close: [music, musician, band, guitar], motion: act_drummer}
+
+quick_draw:               # the quick-draw duel
+  rounds: 3               # best of 3: the first to win 2 rounds wins
+  delay_range_s: [2, 5]   # random wait before the eyes turn green
+  robot_reaction_ms: [450, 900]   # the robot's own reaction time when it plays to win
+  robot_win_chance: 0.3   # chance per round that the robot plays to win (good_sport: true)
+  give_up_s: 4            # the robot lets you win but you never shoot: it draws after this
+  bang_threshold_db: -20  # loudness (dBFS) of one 32 ms microphone frame that counts as a bang;
+                          # calibrate per room: lower (e.g. -30) if shouts are missed
+  go_blank_ms: 300        # shots this soon after green are ignored: the body plays a short "go"
+                          # sound through the speakers (and nobody reacts faster than this)
+  noise_window_ms: 250    # a "bang" this soon after the countdown starts is room noise, not the
+                          # participant: the detector is unreliable -> slow-motion duel
+  slow_motion_robot_ms: [3000, 4500]  # slow-motion duel (speech-to-text hears "bang")
+  slow_motion_give_up_s: 8
+  bang_words: [bang, bam, boom, pow, pew, shoot, shot, fire, peng]  # slow-motion duel only
+
+# --- M6 (not built yet; kept here so the file matches docs/GAMES.md §6) ----------------------
+crocodile_human:
+  categories: [animal, sport, job]
+  burst_frames: 5
+  burst_interval_ms: 600
+staring:
+  robot_loses_after_s: [8, 15]
+  min_fps_for_detect: 10
+rps_arms:
+  rounds: 3
+  mode: camera            # camera | voice
