@@ -120,15 +120,16 @@ export function buildRig(model: Object3D, faceMaterials: FaceMaterials): RobotRi
 }
 
 interface BoneRest {
-  readonly local: Quaternion;
   /** The parent's rest rotation relative to the pose root (to rotate in model space). */
   readonly parent: Quaternion;
   readonly parentInverse: Quaternion;
+  /** What the animation clips last set this bone to (the rest pose until a clip moves it). */
+  readonly clip: Quaternion;
 }
 
 /**
- * Adds Poses on top of the rest pose (or of an animation clip): resetToRest() → clips update
- * → apply(pose). Rotations are given in model space (X right, Y up, Z toward the viewer), so
+ * Adds Poses on top of the rest pose (or of an animation clip): restoreClipPose() → clips
+ * update → saveClipPose() → apply(pose). Rotations are given in model space (X right, Y up, Z toward the viewer), so
  * they work whatever local axes the Blender bones have.
  */
 export class RigPoser {
@@ -143,16 +144,26 @@ export class RigPoser {
         ? bone.parent.getWorldQuaternion(new Quaternion()).premultiply(rootInverse)
         : new Quaternion();
       this.rest.set(bone, {
-        local: bone.quaternion.clone(),
         parent,
         parentInverse: parent.clone().invert(),
+        clip: bone.quaternion.clone(),
       });
     }
   }
 
-  /** Put every posed bone back to rest (call before the animation mixer updates). */
-  resetToRest(): void {
-    for (const [bone, rest] of this.rest) bone.quaternion.copy(rest.local);
+  /**
+   * Undo the previous apply(): every posed bone goes back to what the clips last said (the
+   * rest pose until a clip moves it). Call before the animation mixer updates. It must not be
+   * the rest pose: the mixer only writes a bone when its value changed since the previous
+   * frame, so a bone that a clip holds still would stay at rest and snap back a moment later.
+   */
+  restoreClipPose(): void {
+    for (const [bone, rest] of this.rest) bone.quaternion.copy(rest.clip);
+  }
+
+  /** Remember what the clips say (call right after the mixer update, before apply()). */
+  saveClipPose(): void {
+    for (const [bone, rest] of this.rest) rest.clip.copy(bone.quaternion);
   }
 
   private rotate(bone: Object3D | undefined, x: number, y: number, z: number): void {

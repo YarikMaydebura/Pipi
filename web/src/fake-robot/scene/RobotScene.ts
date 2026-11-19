@@ -270,8 +270,9 @@ class RobotScene implements RobotView {
       const dt = Math.min(MAX_FRAME_DT, Math.max(0, t - this.lastTime));
       this.lastTime = t;
 
-      this.poser.resetToRest();
+      this.poser.restoreClipPose();
       this.clips?.update(dt);
+      this.poser.saveClipPose();
       let pose = addPoses(this.basePose(t), this.gesturePose(t));
       if (this.reducedMotion) pose = scalePose(pose, REDUCED_TRAVEL);
       pose = { ...pose, headPitch: pose.headPitch + SPEECH_HEAD_LIFT * this.speechLevel };

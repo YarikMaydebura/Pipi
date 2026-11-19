@@ -232,8 +232,9 @@ class Pet3DView implements PetView {
     }
 
     const yawSpeed = this.updateLook(dt);
-    this.poser.resetToRest();
+    this.poser.restoreClipPose();
     this.clips?.update(dt);
+    this.poser.saveClipPose();
 
     const hasIdleClip = this.clips?.has('idle') ?? false;
     let total = addPoses(

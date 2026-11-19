@@ -110,12 +110,13 @@ export function buildRig(model: Object3D, eyes: { left: Material; right: Materia
 }
 
 interface BoneRest {
-  readonly local: Quaternion;
   readonly parent: Quaternion; // parent's rest rotation relative to the pose root
   readonly parentInverse: Quaternion;
+  /** What the animation clips last set this bone to (the rest pose until a clip moves it). */
+  readonly clip: Quaternion;
 }
 
-/** resetToRest() → clips update → apply(pose), every frame. */
+/** restoreClipPose() → clips update → saveClipPose() → apply(pose), every frame. */
 export class RigPoser {
   private readonly rest = new Map<Object3D, BoneRest>();
   private readonly euler = new Euler();
@@ -128,15 +129,26 @@ export class RigPoser {
         ? bone.parent.getWorldQuaternion(new Quaternion()).premultiply(rootInverse)
         : new Quaternion();
       this.rest.set(bone, {
-        local: bone.quaternion.clone(),
         parent,
         parentInverse: parent.clone().invert(),
+        clip: bone.quaternion.clone(),
       });
     }
   }
 
-  resetToRest(): void {
-    for (const [bone, rest] of this.rest) bone.quaternion.copy(rest.local);
+  /**
+   * Undo the previous apply(): every posed bone goes back to what the clips last said (the
+   * rest pose until a clip moves it). Call before the animation mixer updates. It must not be
+   * the rest pose: the mixer only writes a bone when its value changed since the previous
+   * frame, so a bone that a clip holds still would stay at rest and snap back a moment later.
+   */
+  restoreClipPose(): void {
+    for (const [bone, rest] of this.rest) bone.quaternion.copy(rest.clip);
+  }
+
+  /** Remember what the clips say (call right after the mixer update, before apply()). */
+  saveClipPose(): void {
+    for (const [bone, rest] of this.rest) rest.clip.copy(bone.quaternion);
   }
 
   private rotate(bone: Object3D | undefined, x: number, y: number, z: number): void {
