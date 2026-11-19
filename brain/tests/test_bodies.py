@@ -175,6 +175,25 @@ async def test_missing_speech_done_is_logged_but_counts_as_delivered() -> None:
     assert log.of("body_error")[-1]["message_type"] == "speak"
 
 
+async def test_a_stop_request_during_a_command_is_not_lost() -> None:
+    # Live run, Nov 16: a WoZ goto that arrived while Pipi spoke was applied 26 s late. The
+    # cancellation landed just as "eyes listening" had been sent, and got thrown away.
+    pet, _, _ = await connected_pet()
+
+    async def phase() -> None:
+        await pet.set_eyes("listening")
+        await asyncio.sleep(10)  # "listening": the cancellation has to stop the phase here
+
+    task = asyncio.create_task(phase())
+    await asyncio.sleep(0)
+
+    task.cancel()
+
+    done, _ = await asyncio.wait([task], timeout=1)
+    task.cancel()
+    assert done and task.cancelled()
+
+
 async def test_disconnect_while_waiting_fails_fast() -> None:
     pet, link, log = await connected_pet(ack=False)
     task = asyncio.create_task(pet.activate("jump_in"))

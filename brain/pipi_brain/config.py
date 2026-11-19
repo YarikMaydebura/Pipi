@@ -220,6 +220,8 @@ class SessionConfig(_Section):
     robot_connect_wait_s: float = Field(ge=0)  # migration waits this long for the robot
     thinking_delay_ms: int = Field(ge=0, le=5000)  # thinking eyes if a reply takes longer
     health_poll_s: float = Field(gt=0)  # body health check interval (WoZ state + alerts)
+    # safety net: a phase still running this long after a WoZ interrupt is cancelled again
+    interrupt_retry_s: float = Field(gt=0, le=30)
     reading_text_file: Path | None = None  # FOCUS word help context (study text, M6)
 
 

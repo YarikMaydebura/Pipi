@@ -129,7 +129,9 @@ class SessionController:
         )
         self.events = SessionEvents(logger, phase=lambda: self.state.phase, body=self._active_name)
         self.pause = PauseState(self._clock)
-        self.safe = SafePoints()
+        self.safe = SafePoints(
+            retry_after_s=app.session.interrupt_retry_s, on_lost_cancel=self._on_lost_cancel
+        )
         self.bodies = BodyManager(
             deps.bodies,
             robot_body=app.robot.body,
@@ -248,6 +250,14 @@ class SessionController:
         self.woz_tasks.add(task)
         task.add_done_callback(self.woz_tasks.discard)
 
+    def _on_lost_cancel(self) -> None:
+        """Safety net of the safe points: the phase ignored a stop request (see timers.py)."""
+        self.events.alert(
+            "warning",
+            f"{self.state.phase} did not stop after a command; stopping it again. "
+            "(This is a bug: please note the time and report it.)",
+        )
+
     def emergency_stop(self) -> None:
         """Stop all motion and audio NOW (no safe point) and freeze until the WoZ decides."""
         self.state.halted = True
@@ -275,8 +285,10 @@ class SessionController:
             await self._loop()
             reason = "completed"
         finally:
-            await cancel_and_wait([*background, *self.woz_tasks])
-            summary = self._finalize(reason)
+            try:
+                await cancel_and_wait([*background, *self.woz_tasks])
+            finally:  # also when interrupted again while stopping: the log gets its summary
+                summary = self._finalize(reason)
         return summary
 
     def log_session_start(self) -> None:

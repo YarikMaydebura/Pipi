@@ -20,7 +20,6 @@ Safety:
 
 from __future__ import annotations
 
-import asyncio
 import ipaddress
 import re
 from collections.abc import Callable, Mapping
@@ -39,7 +38,7 @@ from pipi_brain.bodies.desktop_pet import DesktopPetBody
 from pipi_brain.bodies.fake_robot import FakeRobotBody
 from pipi_brain.config import AppConfig
 from pipi_brain.protocol import BodyName, BodyToBrain, Hello, parse_body_message
-from pipi_brain.resilience import describe_error
+from pipi_brain.resilience import describe_error, with_timeout
 
 MAX_MESSAGE_BYTES = 1 << 20  # bodies only send small JSON messages
 CLOSE_POLICY = 1008  # WebSocket close code "policy violation"
@@ -250,7 +249,7 @@ class BodyServer:
 
     async def _read_hello(self, connection: ServerConnection, link: WebSocketLink) -> Hello | None:
         try:
-            raw = await asyncio.wait_for(connection.recv(), self._hello_timeout_s)
+            raw = await with_timeout(connection.recv(), self._hello_timeout_s)
             message = parse_body_message(raw)
         except TimeoutError:
             error = f"no hello within {self._hello_timeout_s:g} s"

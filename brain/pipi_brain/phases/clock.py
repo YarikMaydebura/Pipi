@@ -9,7 +9,6 @@ always gives the same result.
 from __future__ import annotations
 
 import asyncio
-import contextlib
 from collections.abc import Awaitable, Iterable
 from typing import Any, Protocol
 
@@ -31,13 +30,20 @@ class RealClock:
 
 
 async def cancel_and_wait(tasks: Iterable[asyncio.Future[Any]]) -> None:
-    """Cancel tasks and wait until they have really stopped (their errors are ignored)."""
+    """Cancel tasks and wait until they have really stopped (their errors are ignored).
+
+    If the caller itself is cancelled while waiting, that cancellation is raised as usual
+    (it must never be mistaken for one of the tasks stopping).
+    """
     pending = [task for task in tasks if not task.done()]
+    if not pending:
+        return
     for task in pending:
         task.cancel()
+    await asyncio.wait(pending)
     for task in pending:
-        with contextlib.suppress(asyncio.CancelledError, Exception):
-            await task
+        if not task.cancelled():
+            task.exception()  # looked at, so asyncio does not warn about an unseen error
 
 
 async def first_of(*awaitables: Awaitable[Any]) -> int:

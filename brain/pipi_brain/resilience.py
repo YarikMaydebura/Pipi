@@ -50,11 +50,23 @@ def elapsed_ms_since(start: float) -> int:
     return round((time.perf_counter() - start) * 1000)
 
 
+async def with_timeout(awaitable: Awaitable[T], timeout_s: float) -> T:
+    """Await ``awaitable``; raises ``TimeoutError`` if it takes longer than ``timeout_s``.
+
+    Use this everywhere instead of ``asyncio.wait_for``. On Python 3.11 ``wait_for`` throws a
+    cancellation away when the awaited work has just finished, so a stop request from the
+    experimenter could get lost (a WoZ command was applied 26 s late in a live run).
+    ``asyncio.timeout`` does not have that problem.
+    """
+    async with asyncio.timeout(timeout_s):
+        return await awaitable
+
+
 async def timed_call(factory: Callable[[], Awaitable[T]], timeout_s: float) -> CallOutcome[T]:
     """Await ``factory()`` with a timeout. Errors and timeouts become a failed outcome."""
     start = time.perf_counter()
     try:
-        value = await asyncio.wait_for(factory(), timeout_s)
+        value = await with_timeout(factory(), timeout_s)
     except TimeoutError:
         return CallOutcome(
             None, f"timeout after {timeout_s:g} s", elapsed_ms_since(start), timed_out=True

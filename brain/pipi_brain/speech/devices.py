@@ -14,7 +14,7 @@ from typing import Any
 
 import numpy as np
 
-from pipi_brain.resilience import describe_error
+from pipi_brain.resilience import describe_error, with_timeout
 from pipi_brain.speech.audio_utils import pcm16_to_float
 from pipi_brain.speech.base import AudioFrame, MicrophoneError, SpeakerError, SpeechAudio
 
@@ -80,7 +80,7 @@ class SoundDeviceMicrophone:
 
     async def read_frame(self, timeout_s: float) -> AudioFrame:
         try:
-            return await asyncio.wait_for(self._queue.get(), timeout_s)
+            return await with_timeout(self._queue.get(), timeout_s)
         except TimeoutError as exc:
             raise MicrophoneError(f"no audio from the microphone for {timeout_s:g} s") from exc
 

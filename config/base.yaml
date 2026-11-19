@@ -111,6 +111,8 @@ session:                  # full session flow (docs/INTERACTION_FLOW.md); second
   robot_connect_wait_s: 3 # a migration waits this long for a missing robot, then stays on the pet
   thinking_delay_ms: 300  # thinking eyes if Pipi's reply takes longer than this
   health_poll_s: 1        # body health check (WoZ state + alerts on disconnect)
+  interrupt_retry_s: 3    # safety net: a phase still running this long after a WoZ command is
+                          # stopped again (at a safe point) and a warning is logged
   reading_text_file: null # M6: study reading text, given to the LLM for word help in FOCUS
 
 tts_cache:                # fixed lines' speech cached on disk -> they play instantly

@@ -53,7 +53,7 @@ from pipi_brain.protocol import (
     encode,
     parse_woz_message,
 )
-from pipi_brain.resilience import describe_error
+from pipi_brain.resilience import describe_error, with_timeout
 from pipi_brain.woz_api import CommandOutcome, WozBackend
 from pipi_brain.woz_static import StaticSite, text_response
 
@@ -393,7 +393,7 @@ class WozServer:
         call = asyncio.ensure_future(self._call_backend(command))
         timeout = self._settings.command_timeout_s
         try:
-            outcome = await asyncio.wait_for(asyncio.shield(call), timeout)
+            outcome = await with_timeout(asyncio.shield(call), timeout)
         except TimeoutError:
             error = f"no result within {timeout:g} s; the command may still be running"
             panel.push(Ack(ref_id=command.id, ok=False, error=error))

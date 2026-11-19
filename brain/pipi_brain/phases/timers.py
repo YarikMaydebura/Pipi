@@ -5,13 +5,15 @@
 - ``Countdown``: a pausable, extendable timer (focus, break, silence, phase limits).
 - ``SafePoints``: stretches that must never be cut in half (an utterance, a migration).
   "WoZ always wins at the next safe point": an interrupt waits until no such stretch is
-  running, and meanwhile stops new ones from starting, then cancels the phase.
+  running, and meanwhile stops new ones from starting, then cancels the phase. Safety net: a
+  phase that is still running a few seconds later (something swallowed the cancellation) is
+  cancelled again, again at a safe point, and that is reported.
 """
 
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -19,6 +21,7 @@ from pipi_brain.phases.clock import Clock, first_of
 from pipi_brain.protocol import TimerInfo
 
 EPSILON_S = 1e-6
+DEFAULT_INTERRUPT_RETRY_S = 3.0  # the session uses session.interrupt_retry_s (config)
 
 
 class PauseState:
@@ -108,7 +111,14 @@ class Countdown:
 
 
 class SafePoints:
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        retry_after_s: float = DEFAULT_INTERRUPT_RETRY_S,
+        on_lost_cancel: Callable[[], None] | None = None,
+    ) -> None:
+        self._retry_after_s = retry_after_s  # real seconds, not session time
+        self._on_lost_cancel = on_lost_cancel
         self._depth = 0
         self._idle = asyncio.Event()
         self._idle.set()
@@ -135,6 +145,16 @@ class SafePoints:
 
     async def interrupt(self, task: asyncio.Task[Any]) -> None:
         """Cancel ``task`` at the next safe point and wait until it has stopped."""
+        while True:
+            await self._cancel_at_safe_point(task)
+            done, _ = await asyncio.wait([task], timeout=self._retry_after_s)
+            if done:
+                return
+            # Still running: the cancellation got lost somewhere. Report it and ask again.
+            if self._on_lost_cancel is not None:
+                self._on_lost_cancel()
+
+    async def _cancel_at_safe_point(self, task: asyncio.Task[Any]) -> None:
         self._pending += 1
         try:
             while self._depth > 0:
@@ -145,4 +165,3 @@ class SafePoints:
             if self._pending == 0:
                 self._released.set()
                 self._released = asyncio.Event()
-        await asyncio.wait([task])

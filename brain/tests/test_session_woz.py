@@ -484,3 +484,34 @@ async def test_missing_configured_robot_body_is_reported_at_start(
     alert = s.data("alert")[0]
     assert alert["level"] == "warning" and "alpha_mini" in alert["message"]
     assert "fake_robot" in alert["message"]
+
+
+async def test_a_session_interrupted_twice_still_writes_its_summary(
+    dev_config: LoadedConfig, dialogue_content: DialogueContent, tmp_path: Path
+) -> None:
+    # Ctrl+C, and a second Ctrl+C while the background work is still stopping: the study log
+    # must get its session_end and summary.json anyway.
+    s = waiting(dev_config, dialogue_content, tmp_path)
+    run = s.start()
+    await settle(s)
+    cleanup_done = asyncio.Event()
+
+    async def slow_to_stop() -> None:
+        try:
+            await asyncio.Event().wait()
+        finally:
+            await asyncio.shield(cleanup_done.wait())
+
+    s.ctl.spawn(slow_to_stop())
+    await settle(s)
+
+    run.cancel()
+    await settle(s)  # the session now waits for the background work to stop
+    run.cancel()
+    await settle(s)
+    cleanup_done.set()
+    await asyncio.wait([run], timeout=1)
+
+    assert run.cancelled()
+    assert (s.logger.folder / "summary.json").exists()
+    assert [e["type"] for e in s.logger.read_events()][-1] == "session_end"

@@ -21,7 +21,7 @@ from pipi_brain.protocol import (
     SpeechDone,
     encode,
 )
-from pipi_brain.resilience import describe_error
+from pipi_brain.resilience import describe_error, with_timeout
 
 
 class BodyLink(Protocol):
@@ -75,7 +75,7 @@ class BodyChannel:
         if self.connected:
             return True
         try:
-            await asyncio.wait_for(self._connected.wait(), timeout_s)
+            await with_timeout(self._connected.wait(), timeout_s)
         except TimeoutError:
             return False
         return self.connected
@@ -165,8 +165,8 @@ class BodyChannel:
         self._acks[message.id] = future
         try:
             self._log("body_message", {"direction": "out", **summarize_outgoing(message)})
-            await asyncio.wait_for(link.send(encode(message)), timeout_s)
-            ack = await asyncio.wait_for(future, timeout_s)
+            await with_timeout(link.send(encode(message)), timeout_s)
+            ack = await with_timeout(future, timeout_s)
         except TimeoutError:
             return f"no ack within {timeout_s:g} s", True
         except BodyDisconnectedError as exc:
@@ -187,7 +187,7 @@ class BodyChannel:
     ) -> tuple[SpeechDone | None, str | None]:
         """Wait for ``speech_done``; returns (message, None) or (None, error)."""
         try:
-            return await asyncio.wait_for(future, timeout_s), None
+            return await with_timeout(future, timeout_s), None
         except TimeoutError:
             return None, f"no speech_done within {timeout_s:g} s"
         except BodyDisconnectedError as exc:
