@@ -21,7 +21,8 @@ export type WindowCommand =
   | { readonly action: 'place'; readonly side: RobotSideName } // jump to the bottom corner
   | { readonly action: 'slide'; readonly side: RobotSideName; readonly durationMs: number }
   | { readonly action: 'hide' }
-  | { readonly action: 'show'; readonly side: RobotSideName }; // place at the corner + show
+  | { readonly action: 'show'; readonly side: RobotSideName } // place at the corner + show
+  | { readonly action: 'center'; readonly durationMs: number }; // slide to mid-screen (showcase)
 
 /** What the preload script exposes to the renderer as `window.pipi`. Keep it minimal. */
 export interface PetBridge {

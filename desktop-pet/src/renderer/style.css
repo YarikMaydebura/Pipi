@@ -19,6 +19,9 @@
   --bubble-paper: #f6fbf8;
   --bubble-edge: #bfe6d8;
   --text-bubble: 15px;
+  /* Showcase mode: sizes follow the (bigger) window, so they are in vw. 15px / 320px = 4.7vw. */
+  --text-bubble-showcase: 4.7vw;
+  --text-showcase: 4.4vw;
 }
 
 * {
@@ -144,6 +147,46 @@ body.is-dragging {
   letter-spacing: 0.02em;
   white-space: nowrap;
   pointer-events: none;
+}
+
+/* ---------- Showcase mode (npm run showcase) ---------- */
+
+body.is-showcase {
+  --text-bubble: var(--text-bubble-showcase);
+}
+
+.showcase-label {
+  position: absolute;
+  bottom: 1.6vw;
+  left: 50%;
+  z-index: 2;
+  display: flex;
+  gap: 0.7em;
+  align-items: baseline;
+  margin: 0;
+  padding: 0.42em 1.05em 0.5em;
+  border: 1.5px solid rgb(63 224 197 / 38%);
+  border-radius: 999px;
+  background: rgb(11 19 22 / 88%);
+  color: var(--color-eye-light);
+  box-shadow: 0 0.8vw 2vw -1vw rgb(11 19 22 / 70%);
+  font-size: var(--text-showcase);
+  font-weight: 620;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.showcase-label[hidden] {
+  display: none;
+}
+
+.showcase-label-count {
+  color: rgb(184 255 241 / 55%);
+  font-size: 0.68em;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
 }
 
 /* ---------- 2D fallback ---------- */

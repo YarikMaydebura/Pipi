@@ -2,7 +2,8 @@
 import { app, BrowserWindow, screen } from 'electron';
 import { join } from 'node:path';
 import { BRAIN_URL_ARG, resolveBrainUrl } from './brainUrl';
-import { cornerPosition } from './windowMath';
+import { SHOWCASE_SEARCH, showcaseRequested } from './showcaseMode';
+import { cornerPosition, showcaseBounds, type Rect } from './windowMath';
 
 export const PET_WINDOW_SIZE = { width: 320, height: 420 } as const;
 const PRELOAD_PATH = join(import.meta.dirname, '../preload/index.cjs');
@@ -11,9 +12,13 @@ const RENDERER_HTML = join(import.meta.dirname, '../renderer/index.html');
 /**
  * Bottom-right corner of the primary display's work area (above the taskbar / dock). Once the
  * brain sends body_config, the renderer moves Pipi to the corner on the robot's side.
+ * Showcase mode instead opens a bigger window in the middle of that display.
  */
-function initialPosition(): { x: number; y: number } {
-  return cornerPosition(screen.getPrimaryDisplay().workArea, PET_WINDOW_SIZE, 'right');
+function initialBounds(showcase: boolean): Rect {
+  const { workArea } = screen.getPrimaryDisplay();
+  // Showcase: a bigger Pipi in the middle of the main screen.
+  if (showcase) return showcaseBounds(workArea, PET_WINDOW_SIZE);
+  return { ...PET_WINDOW_SIZE, ...cornerPosition(workArea, PET_WINDOW_SIZE, 'right') };
 }
 
 function keepOnTop(win: BrowserWindow): void {
@@ -41,9 +46,9 @@ function enableDevTools(win: BrowserWindow): void {
 export function createPetWindow(): BrowserWindow {
   const brain = resolveBrainUrl(process.env['PIPI_BRAIN_URL']);
   if (brain.warning) console.warn(`[pipi] ${brain.warning}`);
+  const showcase = showcaseRequested(process.argv, process.env);
   const win = new BrowserWindow({
-    ...PET_WINDOW_SIZE,
-    ...initialPosition(),
+    ...initialBounds(showcase),
     title: 'Pipi',
     show: false,
     transparent: true,
@@ -79,8 +84,11 @@ export function createPetWindow(): BrowserWindow {
   enableDevTools(win);
 
   const devServerUrl = process.env['ELECTRON_RENDERER_URL'];
+  const search = showcase ? SHOWCASE_SEARCH : '';
   const load =
-    !app.isPackaged && devServerUrl ? win.loadURL(devServerUrl) : win.loadFile(RENDERER_HTML);
+    !app.isPackaged && devServerUrl
+      ? win.loadURL(search ? `${devServerUrl}?${search}` : devServerUrl)
+      : win.loadFile(RENDERER_HTML, { search });
   load.catch((error: unknown) => {
     console.error('Failed to load the pet page:', error);
   });

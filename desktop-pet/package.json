@@ -10,6 +10,7 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "viewer": "vite tools/glb-viewer",
+    "showcase": "electron-vite build && electron . --showcase",
     "typecheck": "tsc --noEmit --composite false -p tsconfig.node.json && tsc --noEmit --composite false -p tsconfig.web.json",
     "test": "vitest run --passWithNoTests"
   },

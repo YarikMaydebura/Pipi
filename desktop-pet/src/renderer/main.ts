@@ -23,6 +23,9 @@ import { createStageMotion } from './migration/stageMotion';
 import { Migrator } from './migration/migrator';
 import { PetController } from './pet/PetController';
 import type { PetView } from './pet/PetView';
+import { Showcase, showcaseRequested } from './showcase/showcase';
+import { createShowcaseActor } from './showcase/showcaseActor';
+import { createShowcaseLabel } from './showcase/showcaseLabel';
 
 const START_TIMEOUT_MS = 8000;
 const PET_VERSION = '0.4.0'; // sent in `hello`; bump when the pet's behaviour changes
@@ -101,7 +104,9 @@ async function boot(): Promise<void> {
     interaction.setReducedMotion(event.matches);
   });
 
-  const client = connectToBrain(pet, () => reducedMotion.matches);
+  // Showcase mode plays every animation by itself: no brain, no idle fidgets in between.
+  const showcase = showcaseRequested(window.location.search);
+  const client = connectToBrain(pet, () => reducedMotion.matches, !showcase);
   wirePointerInput(() => pet.currentView, window.pipi, {
     onPoke: () => {
       interaction.click();
@@ -112,7 +117,8 @@ async function boot(): Promise<void> {
     onDrag: (dragging) => interaction.drag(dragging),
     onHover: (over) => interaction.hover(over),
   });
-  interaction.start();
+  if (showcase) startShowcase(pet);
+  else interaction.start();
 
   if (isDebugEnabled(window.location.search, import.meta.env.DEV)) {
     installDebugKeys(pet, document.querySelector<HTMLElement>('#debug-label'), {
@@ -125,8 +131,26 @@ async function boot(): Promise<void> {
   applyUrlParams(pet, window.location.search);
 }
 
-/** Speech, caption bubble and migration services + the WebSocket link to the brain. */
-function connectToBrain(pet: PetController, reducedMotion: () => boolean): BrainClient {
+/** `npm run showcase`: loop through every clip and eye state, with its name under Pipi. */
+function startShowcase(pet: PetController): void {
+  const show = new Showcase({
+    actor: createShowcaseActor(pet, window.pipi),
+    onStep: createShowcaseLabel(element<HTMLElement>('#showcase-label')),
+    onError: (step, error) => console.warn(`[pipi] showcase step "${step.title}" failed:`, error),
+  });
+  show.start();
+  console.info('[pipi] showcase mode: playing every animation in a loop (no brain)');
+}
+
+/**
+ * Speech, caption bubble and migration services + the WebSocket link to the brain.
+ * `connect: false` (showcase mode) sets up the services but never dials the brain.
+ */
+function connectToBrain(
+  pet: PetController,
+  reducedMotion: () => boolean,
+  connect = true,
+): BrainClient {
   const bridge = window.pipi;
   const caption = createSpeechBubble(element<HTMLElement>('#speech-bubble'));
   let client: BrainClient | null = null;
@@ -139,7 +163,7 @@ function connectToBrain(pet: PetController, reducedMotion: () => boolean): Brain
     },
     onDone: (refId, durationMs) => {
       const sent = client?.send({ type: 'speech_done', ref_id: refId, duration_ms: durationMs });
-      if (!sent) console.warn('[pipi] speech_done not sent: no brain connection');
+      if (!sent && connect) console.warn('[pipi] speech_done not sent: no brain connection');
     },
   });
   const migration = new Migrator({
@@ -154,7 +178,7 @@ function connectToBrain(pet: PetController, reducedMotion: () => boolean): Brain
     version: PET_VERSION,
     handle: (message) => pet.handle(message),
   });
-  client.start();
+  if (connect) client.start();
   return client;
 }
 

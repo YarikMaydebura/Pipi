@@ -3,7 +3,14 @@
 // may send them.
 import { ipcMain, screen, type BrowserWindow, type IpcMainInvokeEvent } from 'electron';
 import { IPC, type RobotSideName } from '../preload/bridge';
-import { cornerPosition, easeInOutCubic, lerpPoint, parseWindowCommand } from './windowMath';
+import {
+  centerPosition,
+  cornerPosition,
+  easeInOutCubic,
+  lerpPoint,
+  parseWindowCommand,
+  type Point,
+} from './windowMath';
 
 const FRAME_MS = 16; // ~60 Hz
 
@@ -18,17 +25,22 @@ export function setupWindowMover(win: BrowserWindow): () => void {
     finishSlide = undefined;
   };
 
-  const corner = (side: RobotSideName): { x: number; y: number } => {
+  const corner = (side: RobotSideName): Point => {
     const display = screen.getDisplayMatching(win.getBounds());
     const [width = 0, height = 0] = win.getSize();
     return cornerPosition(display.workArea, { width, height }, side);
   };
 
-  const slide = (side: RobotSideName, durationMs: number): Promise<void> => {
+  const center = (): Point => {
+    const display = screen.getDisplayMatching(win.getBounds());
+    const [width = 0, height = 0] = win.getSize();
+    return centerPosition(display.workArea, { width, height });
+  };
+
+  const slide = (to: Point, durationMs: number): Promise<void> => {
     stopSlide();
     const [x = 0, y = 0] = win.getPosition();
     const from = { x, y };
-    const to = corner(side);
     if (durationMs <= 0) {
       win.setPosition(to.x, to.y);
       return Promise.resolve();
@@ -58,7 +70,10 @@ export function setupWindowMover(win: BrowserWindow): () => void {
         return true;
       }
       case 'slide':
-        await slide(command.side, command.durationMs);
+        await slide(corner(command.side), command.durationMs);
+        return true;
+      case 'center':
+        await slide(center(), command.durationMs);
         return true;
       case 'hide':
         stopSlide();
