@@ -11,12 +11,17 @@ Same session as ``--session --typed`` (body server, pet, fake robot, WoZ ``/comm
 
 Jump straight to the games with ``/goto GAME_CROCODILE`` or ``/goto GAME_MENU``.
 No API key is read and nothing is sent to the network.
+
+Demo backup (same flags as the normal session): ``--woz`` also serves the WoZ panel
+(http://127.0.0.1:8766/woz/, needs ``npm run build``) and waits for Start there;
+``--persona cheerful`` skips the persona question.
 """
 
 from __future__ import annotations
 
 import argparse
 import asyncio
+import functools
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -31,6 +36,7 @@ from pipi_brain.speech.base import SpeechAudio
 from pipi_brain.tools.babble import babble
 from pipi_brain.voice_app import Health, SessionOptions, TerminalTextInput
 from pipi_brain.voice_loop import VoiceLoopDeps
+from pipi_brain.woz_server import serve_woz
 
 
 class OfflineChatModel:
@@ -82,6 +88,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="offline_session", description=__doc__)
     parser.add_argument("--config", type=Path, required=True, help="e.g. ../config/dev.yaml")
     parser.add_argument("--participant", default="OFFLINE", help="log folder name prefix")
+    parser.add_argument("--persona", default=None, help="fixed persona id: no persona question")
+    parser.add_argument(
+        "--woz", action="store_true", help="serve the WoZ panel and wait for Start there"
+    )
     args = parser.parse_args(argv)
     try:
         loaded = load_config(args.config)
@@ -90,9 +100,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             update={"tts_cache": loaded.app.tts_cache.model_copy(update={"enabled": False})}
         )
         loaded = LoadedConfig(app, loaded.secrets, loaded.source, loaded.config_hash)
-        options = SessionAppOptions(participant_id=args.participant, typed_input=True)
+        options = SessionAppOptions(
+            participant_id=args.participant, persona_id=args.persona, typed_input=True
+        )
+        woz_factory = functools.partial(serve_woz, loaded=loaded) if args.woz else None
         print("Offline session: no LLM, babble voice. Try: /goto GAME_CROCODILE   /help")
-        asyncio.run(run_session(loaded, options, deps_factory=offline_deps))
+        asyncio.run(
+            run_session(loaded, options, woz_server_factory=woz_factory, deps_factory=offline_deps)
+        )
     except KeyboardInterrupt:
         print("\nStopped.")
     except (ConfigError, LoggerError) as exc:

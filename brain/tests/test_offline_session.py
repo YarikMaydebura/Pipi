@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 from pathlib import Path
 
 import pytest
@@ -13,6 +14,7 @@ from pipi_brain.speech.audio_gate import AudioGate
 from pipi_brain.tools import offline_session
 from pipi_brain.tools.offline_session import OfflineChatModel, main, offline_deps
 from pipi_brain.voice_app import SessionOptions
+from pipi_brain.woz_server import serve_woz
 
 
 async def test_offline_deps_need_no_key_and_fail_over_to_the_fallbacks(
@@ -54,3 +56,26 @@ def test_offline_main_runs_the_normal_session_with_offline_deps(
     assert isinstance(loaded, LoadedConfig) and loaded.app.tts_cache.enabled is False
     assert seen["deps_factory"] is offline_deps
     assert seen["options"].typed_input is True  # type: ignore[attr-defined]
+    assert seen["woz_server_factory"] is None  # no panel unless asked: starts by itself
+    assert seen["options"].persona_id is None  # type: ignore[attr-defined]
+
+
+def test_offline_main_can_open_the_woz_panel_and_fix_the_persona(
+    monkeypatch: pytest.MonkeyPatch, dev_config: LoadedConfig
+) -> None:
+    # Demo backup without an API key: same commands as the demo script (--woz --persona).
+    seen: dict[str, object] = {}
+
+    async def fake_run_session(loaded: LoadedConfig, options: object, **kwargs: object) -> dict:
+        seen.update(options=options, **kwargs)
+        return {}
+
+    monkeypatch.setattr(offline_session, "run_session", fake_run_session)
+    args = ["--config", str(dev_config.source), "--woz", "--persona", "cheerful"]
+
+    assert main(args) == 0
+
+    factory = seen["woz_server_factory"]
+    assert isinstance(factory, functools.partial) and factory.func is serve_woz
+    assert factory.keywords["loaded"].app.tts_cache.enabled is False  # the offline config
+    assert seen["options"].persona_id == "cheerful"  # type: ignore[attr-defined]
