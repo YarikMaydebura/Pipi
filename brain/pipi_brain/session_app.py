@@ -21,12 +21,17 @@ import importlib.util
 from collections.abc import Callable, Mapping
 from contextlib import AbstractAsyncContextManager, AsyncExitStack
 from dataclasses import dataclass
+from types import MappingProxyType
 from typing import Any, Protocol
 
+from pipi_brain.bodies.alpha_mini import AlphaMiniBody, AlphaMiniSettings
+from pipi_brain.bodies.alpha_mini_moves import MoveLibrary, load_moves
 from pipi_brain.bodies.base import Body
+from pipi_brain.bodies.ridk import RidkConnector
 from pipi_brain.config import ConfigError, LoadedConfig
 from pipi_brain.dialogue.content import load_dialogue_content
 from pipi_brain.games.config import GamesConfig
+from pipi_brain.games.motions import MotionLibrary
 from pipi_brain.games.setup import check_session, load_game_setup
 from pipi_brain.logging_study import StudyLogger
 from pipi_brain.phases.clock import Clock, RealClock
@@ -80,6 +85,39 @@ class SessionAppOptions:
     auto_start: bool | None = None  # None = start by itself when there is no WoZ panel
 
 
+class RobotBodyHost:
+    """The WebSocket body server (pet + fake robot) plus the real Alpha Mini over RidK."""
+
+    def __init__(self, server: BodyHost, robot: AlphaMiniBody, connector: RidkConnector) -> None:
+        self._server = server
+        self._connector = connector
+        self._bodies: Mapping[str, Body] = MappingProxyType({**server.bodies, robot.name: robot})
+
+    @property
+    def bodies(self) -> Mapping[str, Body]:
+        return self._bodies
+
+    async def start(self) -> None:
+        await self._server.start()  # BodyServerError -> the caller falls back (no robot either)
+        await self._connector.start()  # returns at once; connects in the background
+
+    async def stop(self) -> None:
+        await self._connector.stop()
+        await self._server.stop()
+
+
+def load_robot_moves(loaded: LoadedConfig, motions: MotionLibrary) -> MoveLibrary:
+    """alpha_mini.yaml, checked against motions.yaml. Raises ConfigError."""
+    moves = load_moves(loaded.app.robot.moves_file)
+    used = (motions.resolve(name, AlphaMiniBody.name) for name in motions.names)
+    if missing := moves.missing(name for name in used if name is not None):
+        raise ConfigError(
+            f"motions.yaml names Alpha Mini moves that are not in "
+            f"{loaded.app.robot.moves_file}: {', '.join(missing)}"
+        )
+    return moves
+
+
 BlinkFactory = Callable[[GamesConfig], tuple[BlinkDetector | None, str]]
 
 
@@ -104,7 +142,22 @@ def build_blink_detector(games: GamesConfig) -> tuple[BlinkDetector | None, str]
 def default_body_host(
     loaded: LoadedConfig, log: Callable[[str, Mapping[str, Any]], None], log_for: LogFor
 ) -> BodyHost:
-    return BodyServer.from_config(loaded.app, log=log, log_for=log_for)
+    """Pet + fake robot always; the real Alpha Mini too when RIDK_REALM is set."""
+    app = loaded.app
+    server = BodyServer.from_config(app, log=log, log_for=log_for)
+    realm = loaded.secrets.ridk_realm
+    if realm is None:
+        return server
+    moves = load_robot_moves(loaded, load_game_setup(app.games).motions)
+    robot_log = log_for(AlphaMiniBody.name)
+    settings = AlphaMiniSettings(
+        call_timeout_s=app.robot.ridk_call_timeout_s,
+        stop_timeout_s=app.bodies.stop_timeout_s,
+        speech_s_per_char=app.bodies.caption_s_per_char,
+    )
+    robot = AlphaMiniBody(moves, settings, log=robot_log)
+    connector = RidkConnector(app.robot.ridk_url, realm.get_secret_value(), robot, log=robot_log)
+    return RobotBodyHost(server, robot, connector)
 
 
 async def run_session(
@@ -134,6 +187,8 @@ async def run_session(
     reading_text = _read_reading_text(app.session.reading_text_file)
     game_setup = load_game_setup(app.games)  # games.yaml + motions.yaml: ConfigError if wrong
     check_session(game_setup, app.session)
+    if loaded.secrets.ridk_realm is not None:  # the real robot will be used: check its moves now
+        load_robot_moves(loaded, game_setup.motions)
 
     gate = AudioGate(app.audio.gate_tail_ms)
     voice_options = SessionOptions(

@@ -1,7 +1,8 @@
 """Crocodile: the robot acts something out, the participant guesses (docs/GAMES.md §3.1).
 
 One round, in plain words:
-1. A word is picked ONLY from ``games.yaml -> crocodile.words`` and never twice in a session.
+1. A word is picked ONLY from ``games.yaml -> crocodile.words`` and never twice in a session,
+   and only if the active body can act it (motions.yaml: the real robot has fewer moves).
    The LLM may choose among the unused words (while Pipi says "watch closely!"); if it fails
    or answers something that is not in the list, the word is picked at random.
 2. Acting: eyes ``determined`` and the word's motion. The fake robot HOLDS (loops) an acting
@@ -150,7 +151,8 @@ class CrocodileRobot(Game):
         await ctx.say_line("crocodile_rules", gesture="excited", expression="happy")
 
     async def play_round(self, ctx: GameContext, round_no: int) -> RoundResult:
-        unused = self._unused()
+        # Only words the active body can act (the real robot has fewer moves than the fake one).
+        unused = [word for word in self._unused() if ctx.can_play_motion(word.motion)]
         if not unused:
             return RoundResult("no_words_left", abort=True)
         # The word is chosen while Pipi says the intro line: no waiting for the participant.

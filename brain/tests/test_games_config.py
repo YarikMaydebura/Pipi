@@ -8,6 +8,7 @@ from typing import Any
 import pytest
 import yaml
 
+from pipi_brain.bodies.alpha_mini_moves import load_moves
 from pipi_brain.config import ConfigError, LoadedConfig, load_config
 from pipi_brain.games.config import GamesConfig, load_games_config
 from pipi_brain.games.motions import BODIES, load_motions
@@ -127,15 +128,22 @@ def test_motion_library_sends_names_as_they_are_to_the_web_bodies() -> None:
     assert not motions.supports("desktop_pet", "crocodile")
 
 
-def test_alpha_mini_mapping_is_empty_until_the_lab_test() -> None:
+def test_alpha_mini_mapping_points_only_at_verified_moves() -> None:
     motions = load_motions(CONFIG_DIR / "motions.yaml")
-    assert all(motions.resolve(name, "alpha_mini") is None for name in motions.names)
-    assert not motions.supports("alpha_mini")
+    moves = load_moves(CONFIG_DIR / "alpha_mini.yaml")  # rejects unverified joints/behaviors
+    used = {motions.resolve(name, "alpha_mini") for name in motions.names} - {None}
+    assert used and moves.missing(name for name in used if name is not None) == []
+    # Crocodile on the real robot: only the words its verified moves can act.
+    acting = {name for name in motions.names if name.startswith("act_")}
+    playable = {n for n in acting if motions.resolve(n, "alpha_mini") is not None}
+    assert playable == {"act_sleeping", "act_robot", "act_dancer"}
+    assert motions.supports("alpha_mini", "crocodile")
+    # Needs an unverified joint (head yaw / arms): stays null until tested in the lab.
+    for name in ("shake_head", "shrug", "act_bird", "act_boxer", "duel_ready"):
+        assert motions.resolve(name, "alpha_mini") is None
     assert motions.resolve("act_bird", "unknown_body") is None
     assert motions.resolve("moonwalk", "fake_robot") is None
     assert set(BODIES) == {"fake_robot", "desktop_pet", "alpha_mini"}
-    text = (CONFIG_DIR / "motions.yaml").read_text(encoding="utf-8")
-    assert "fill after the lab test (M5)" in text
 
 
 def test_canonical_motion_names_of_the_design_are_all_present() -> None:

@@ -24,6 +24,7 @@ from pipi_brain.games.crocodile import (
     judge_by_keywords,
     mentions,
 )
+from pipi_brain.games.motions import MotionLibrary
 from pipi_brain.games.setup import GameSetup, build_registry, load_game_setup
 from pipi_brain.speech.base import Utterance
 
@@ -339,3 +340,22 @@ async def test_llm_picks_among_the_unused_words_only(fx: Fixtures) -> None:
     assert "'bird'" in prompt and "Choose exactly ONE word" in prompt
     # the word is never spoken before the reveal: the pick ran during the intro line
     assert table.s.pipi_lines()[:2] == ["crocodile_rules", "crocodile_watch"]
+
+
+async def test_only_words_the_active_body_can_act_are_picked(fx: Fixtures) -> None:
+    """The real robot has moves for a few words only: the others are never picked."""
+    table = await table_for(fx, script=[("a robot!", 4)])
+    motions = table.s.ctl.ctx.games.motions
+    entries = {
+        name: entry.model_copy(update={"fake_robot": None})
+        if name.startswith("act_") and name != "act_robot"
+        else entry
+        for name, entry in motions._motions.items()
+    }
+    setup = table.s.ctl.ctx.games
+    table.s.ctl.ctx.games = GameSetup(setup.config, MotionLibrary(entries), setup.registry)
+    outcome = await table.play(GAME)
+    assert (outcome.result, outcome.rounds) == ("completed", 1)
+    (round_,) = table.rounds()
+    assert round_["inputs"]["word"] == "robot"  # bird would be first in the list otherwise
+    assert ("motion", "act_bird") not in table.robot_did("motion")

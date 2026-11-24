@@ -55,6 +55,7 @@ PATH_FIELDS: tuple[tuple[str, str], ...] = (
     ("tts_cache", "dir"),
     ("games", "games_file"),
     ("games", "motions_file"),
+    ("robot", "moves_file"),
 )
 MAX_EXTENDS_DEPTH = 3
 
@@ -95,6 +96,7 @@ class RobotConfig(_Section):
     ridk_url: str = Field(pattern=r"^wss?://")
     ridk_connect_timeout_s: float = Field(gt=0, le=60)
     ridk_call_timeout_s: float = Field(gt=0, le=120)  # one RidK call (a motion can take seconds)
+    moves_file: Path  # the real robot's moves from verified RidK calls (bodies/alpha_mini_moves.py)
 
 
 class TimersConfig(_Section):

@@ -4,9 +4,10 @@
 #             the body has a clip, an alias or a procedural motion with that name)
 #   null    = this body cannot play it (yet): the motion is skipped and logged
 #
-# alpha_mini: fill after the lab test (M5). NEVER invent RidK names here: use
-# docs/ROBOT_RIDK.md and the manual in docs/ridk/, or ask Yarik to test in the lab.
-# While every alpha_mini entry is null, games that need motions are hidden on the real robot.
+# alpha_mini: a move name from alpha_mini.yaml, which only uses verified RidK calls (head pitch,
+# BlocklyStand, BlocklyWaveRightArm from the course examples). NEVER invent RidK names: test a
+# new joint / behavior in the lab (robot_check), then add it there. null = needs an unverified
+# joint (arms, head yaw): Crocodile only picks words the active body can act.
 #
 # fake_robot (web/src/fake-robot/motionPlan.ts): unknown names get an error ack. act_*,
 # duel_ready, stare_ready, rps_rock, rps_paper and rps_scissors are HELD (they loop until the
@@ -18,27 +19,27 @@
 # Crocodile is hidden and the duel is played with the eyes only.
 motions:
   # --- System ---------------------------------------------------------------------------------
-  idle:           {group: system, fake_robot: idle, desktop_pet: idle, alpha_mini: null}  # ends a held motion
+  idle:           {group: system, fake_robot: idle, desktop_pet: idle, alpha_mini: idle}  # ends a held motion
   # --- Social ---------------------------------------------------------------------------------
-  wave:           {group: social, fake_robot: wave, desktop_pet: wave, alpha_mini: null}
-  signature_wave: {group: social, fake_robot: signature_wave, desktop_pet: signature_wave, alpha_mini: null}
-  nod:            {group: social, fake_robot: nod, desktop_pet: nod, alpha_mini: null}
+  wave:           {group: social, fake_robot: wave, desktop_pet: wave, alpha_mini: wave}
+  signature_wave: {group: social, fake_robot: signature_wave, desktop_pet: signature_wave, alpha_mini: wave}
+  nod:            {group: social, fake_robot: nod, desktop_pet: nod, alpha_mini: nod}
   shake_head:     {group: social, fake_robot: shake_head, desktop_pet: shake_head, alpha_mini: null}
   think:          {group: social, fake_robot: think, desktop_pet: think, alpha_mini: null}
-  excited:        {group: social, fake_robot: excited, desktop_pet: excited, alpha_mini: null}
-  celebrate:      {group: social, fake_robot: celebrate, desktop_pet: celebrate, alpha_mini: null}
+  excited:        {group: social, fake_robot: excited, desktop_pet: excited, alpha_mini: excited}
+  celebrate:      {group: social, fake_robot: celebrate, desktop_pet: celebrate, alpha_mini: celebrate}
   sad:            {group: social, fake_robot: sad, desktop_pet: sad, alpha_mini: null}
   shrug:          {group: social, fake_robot: shrug, desktop_pet: shrug, alpha_mini: null}
   bow:            {group: social, fake_robot: bow, desktop_pet: bow, alpha_mini: null}
-  wake_up:        {group: social, fake_robot: wake_up, desktop_pet: wake_up, alpha_mini: null}
-  sleep:          {group: social, fake_robot: sleep, desktop_pet: sleep, alpha_mini: null}
+  wake_up:        {group: social, fake_robot: wake_up, desktop_pet: wake_up, alpha_mini: wake_up}
+  sleep:          {group: social, fake_robot: sleep, desktop_pet: sleep, alpha_mini: sleep}
   # --- Crocodile (one per word in games.yaml) -------------------------------------------------
   act_bird:       {group: crocodile, fake_robot: act_bird, desktop_pet: null, alpha_mini: null}
   act_boxer:      {group: crocodile, fake_robot: act_boxer, desktop_pet: null, alpha_mini: null}
   act_swimmer:    {group: crocodile, fake_robot: act_swimmer, desktop_pet: null, alpha_mini: null}
-  act_dancer:     {group: crocodile, fake_robot: act_dancer, desktop_pet: null, alpha_mini: null}
-  act_robot:      {group: crocodile, fake_robot: act_robot, desktop_pet: null, alpha_mini: null}
-  act_sleeping:   {group: crocodile, fake_robot: act_sleeping, desktop_pet: null, alpha_mini: null}
+  act_dancer:     {group: crocodile, fake_robot: act_dancer, desktop_pet: null, alpha_mini: act_dancer}
+  act_robot:      {group: crocodile, fake_robot: act_robot, desktop_pet: null, alpha_mini: act_robot}
+  act_sleeping:   {group: crocodile, fake_robot: act_sleeping, desktop_pet: null, alpha_mini: act_sleeping}
   act_superhero:  {group: crocodile, fake_robot: act_superhero, desktop_pet: null, alpha_mini: null}
   act_drummer:    {group: crocodile, fake_robot: act_drummer, desktop_pet: null, alpha_mini: null}
   # --- Duel -----------------------------------------------------------------------------------

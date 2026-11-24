@@ -141,6 +141,10 @@ class GameContext(Protocol):
         """Play a canonical motion (motions.yaml) on the active body; False = not played."""
         ...
 
+    def can_play_motion(self, name: str) -> bool:
+        """True if the active body has this canonical motion (motions.yaml); nothing is sent."""
+        ...
+
     async def set_eyes(self, state: EyeState) -> bool: ...
 
     async def rest(self) -> None:
