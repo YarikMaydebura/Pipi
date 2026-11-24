@@ -35,6 +35,7 @@ from pipi_brain.phases.woz_signals import WozSignals
 from pipi_brain.protocol import Expression, Phase
 from pipi_brain.speech.bang import BangDetector
 from pipi_brain.speech.base import SpeechToText
+from pipi_brain.vision.base import BlinkDetector
 
 T = TypeVar("T")
 
@@ -74,6 +75,7 @@ class PhaseContext:
     emit: Callable[[str], None]
     reading_text: str | None = None
     bang_detector: BangDetector | None = None  # quick-draw duel; None = typed / slow motion
+    blink_detector: BlinkDetector | None = None  # staring contest (webcam); None = pretend
 
     @property
     def registry(self) -> GameRegistry:

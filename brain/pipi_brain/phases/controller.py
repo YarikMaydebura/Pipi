@@ -66,6 +66,7 @@ from pipi_brain.speech.audio_gate import AudioGate
 from pipi_brain.speech.bang import BangDetector
 from pipi_brain.speech.base import Speaker, SpeechToText, TextToSpeech
 from pipi_brain.speech.tts_cache import TtsCache
+from pipi_brain.vision.base import BlinkDetector
 from pipi_brain.woz_api import CommandOutcome, WozListener
 
 Handler = Callable[[PhaseContext], Awaitable[Next]]
@@ -86,6 +87,7 @@ class SessionDeps:
     clock: Clock = RealClock()
     tts_cache: TtsCache | None = None
     bang_detector: BangDetector | None = None  # quick-draw duel; None = typed / slow motion
+    blink_detector: BlinkDetector | None = None  # staring contest; None = pretend mode
     rng: random.Random | None = None  # games' randomness; tests pass a seeded one
 
 
@@ -186,6 +188,7 @@ class SessionController:
             emit=emit,
             reading_text=reading_text,
             bang_detector=deps.bang_detector,
+            blink_detector=deps.blink_detector,
         )
         self._directives: asyncio.Queue[Directive] = asyncio.Queue()
         self._phase_task: asyncio.Task[Next] | None = None
@@ -539,6 +542,7 @@ class SessionController:
                 "default_game": app.session.default_game,
                 "good_sport": self.games.config.good_sport,
                 "bang_detector": self._deps.bang_detector is not None,
+                "blink_detector": self._deps.blink_detector is not None,
             },
             # what participants could actually notice (cues.py), and what the config intends
             "cue_checklist": self.cue_checklist(),
@@ -548,7 +552,12 @@ class SessionController:
 
     def cue_checklist(self) -> dict[str, Any]:
         """The identity cues of the current robot body (docs/LOGGING_AND_STUDY.md §4)."""
-        return cue_checklist(self.app.cues, self.bodies.robot_name, self.bodies.robot)
+        return cue_checklist(
+            self.app.cues,
+            self.bodies.robot_name,
+            self.bodies.robot,
+            webcam=self._deps.blink_detector is not None,
+        )
 
     def _finalize(self, reason: str) -> dict[str, Any]:
         now = self._clock.now()

@@ -14,18 +14,23 @@ import pytest
 from pipi_brain import session_app
 from pipi_brain.__main__ import EXIT_MISSING_KEY, EXIT_OK, main
 from pipi_brain.bodies.base import Body
-from pipi_brain.config import ConfigError, LoadedConfig
+from pipi_brain.config import ConfigError, LoadedConfig, load_config
 from pipi_brain.dialogue.llm import DialogueEngine
 from pipi_brain.fakes import (
+    FakeBlinkDetector,
     FakeBody,
     FakeChatModel,
+    FakeClock,
     FakeSpeaker,
     FakeSpeechToText,
     FakeTextInput,
     FakeTextToSpeech,
 )
+from pipi_brain.games.config import GamesConfig
+from pipi_brain.games.setup import load_game_setup
 from pipi_brain.session_app import SessionAppOptions, run_session
 from pipi_brain.speech.audio_gate import AudioGate
+from pipi_brain.vision.base import BlinkDetector
 from pipi_brain.voice_app import SessionOptions
 from pipi_brain.voice_loop import VoiceLoopDeps
 from pipi_brain.woz_api import WozBackend
@@ -222,9 +227,66 @@ async def test_session_loads_the_games_and_reports_the_bang_detector(
     )
     lines = (folder(loaded) / "events.jsonl").read_text("utf-8").splitlines()
     start = json.loads(lines[0])["data"]
-    assert start["games"]["built"] == ["crocodile_robot", "quick_draw"]
+    assert start["games"]["built"] == ["crocodile_robot", "quick_draw", "staring"]
     assert start["games"]["bang_detector"] is False  # typed session: Enter is the bang
     assert start["components"]["bang_detector"].startswith("not used (no microphone)")
+
+
+async def test_a_webcam_blink_detector_is_reported_and_used_for_the_cues(
+    dev_config: LoadedConfig, tmp_path: Path
+) -> None:
+    loaded = config(dev_config, tmp_path)
+    made: list[float] = []
+
+    def webcam(games: GamesConfig) -> tuple[BlinkDetector | None, str]:
+        made.append(games.staring.min_fps_for_detect)
+        return FakeBlinkDetector(FakeClock()), "webcam (opens only during the staring contest)"
+
+    await run_session(
+        loaded,
+        SessionAppOptions(participant_id="P07", typed_input=True),
+        deps_factory=fake_deps(["/end"]),
+        body_host_factory=lambda *_: FakeHost(),
+        blink_factory=webcam,
+        emit=lambda _: None,
+    )
+    start = json.loads((folder(loaded) / "events.jsonl").read_text("utf-8").splitlines()[0])["data"]
+    assert made == [10]  # games.yaml staring.min_fps_for_detect
+    assert start["games"]["blink_detector"] is True
+    assert start["components"]["blink_detector"].startswith("webcam")
+    assert start["cue_checklist"]["robot_camera"] == "webcam"
+
+
+async def test_no_camera_option_never_builds_a_detector(
+    dev_config: LoadedConfig, tmp_path: Path
+) -> None:
+    # e.g. a participant who does not want to be on camera: the staring contest pretends
+    loaded = config(dev_config, tmp_path)
+
+    def must_not_build(games: GamesConfig) -> tuple[BlinkDetector | None, str]:
+        raise AssertionError("the webcam detector must not be built with --no-camera")
+
+    await run_session(
+        loaded,
+        SessionAppOptions(participant_id="P08", typed_input=True, camera=False),
+        deps_factory=fake_deps(["/end"]),
+        body_host_factory=lambda *_: FakeHost(),
+        blink_factory=must_not_build,
+        emit=lambda _: None,
+    )
+    start = json.loads((folder(loaded) / "events.jsonl").read_text("utf-8").splitlines()[0])["data"]
+    assert start["games"]["blink_detector"] is False
+    assert start["components"]["blink_detector"].startswith("off (--no-camera)")
+    assert start["cue_checklist"]["robot_camera"] == "none"
+
+
+def test_without_the_vision_packages_there_is_no_detector(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(session_app, "vision_installed", lambda: False)
+    games = load_game_setup(load_config(CONFIG_DIR / "dev.yaml").app.games).config
+
+    detector, status = session_app.build_blink_detector(games)
+
+    assert detector is None and "pretend" in status and ".[vision]" in status
 
 
 async def test_broken_games_file_stops_the_session_before_it_starts(

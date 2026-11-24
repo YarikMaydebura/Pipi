@@ -38,9 +38,18 @@ def robot_cues(robot_name: str, robot: object | None) -> dict[str, str]:
     return cues | {key: str(value) for key, value in reported.items() if key in ROBOT_CUES}
 
 
-def cue_checklist(cues: CuesConfig, robot_name: str, robot: object | None) -> dict[str, Any]:
-    """The checklist in the documented format (docs/LOGGING_AND_STUDY.md §4)."""
+def cue_checklist(
+    cues: CuesConfig, robot_name: str, robot: object | None, *, webcam: bool = False
+) -> dict[str, Any]:
+    """The checklist in the documented format (docs/LOGGING_AND_STUDY.md §4).
+
+    ``webcam``: the laptop webcam watches the participant (staring contest) when the robot
+    itself has no camera in use.
+    """
     robot_side = robot_cues(robot_name, robot)
+    camera = robot_side["robot_camera"]
+    if webcam and camera == "none":
+        camera = "webcam"
     return {
         "same_name": True,  # Pipi greets by name in both bodies ("Ta-da! Hi again, <name>!")
         "same_persona": True,  # one persona for the whole session
@@ -50,7 +59,7 @@ def cue_checklist(cues: CuesConfig, robot_name: str, robot: object | None) -> di
         "signature_phrase": cues.signature_phrase,
         "signature_gesture": cues.signature_gesture,
         "transition_animation": cues.transition_animation,
-        "robot_camera": robot_side["robot_camera"],
+        "robot_camera": camera,
         "robot_body": robot_name,
     }
 

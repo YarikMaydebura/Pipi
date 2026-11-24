@@ -90,6 +90,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--participant", default="OFFLINE", help="log folder name prefix")
     parser.add_argument("--persona", default=None, help="fixed persona id: no persona question")
     parser.add_argument(
+        "--no-camera",
+        action="store_true",
+        help="never use the webcam (the staring contest pretends), e.g. without camera consent",
+    )
+    parser.add_argument(
         "--woz", action="store_true", help="serve the WoZ panel and wait for Start there"
     )
     args = parser.parse_args(argv)
@@ -101,7 +106,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         loaded = LoadedConfig(app, loaded.secrets, loaded.source, loaded.config_hash)
         options = SessionAppOptions(
-            participant_id=args.participant, persona_id=args.persona, typed_input=True
+            participant_id=args.participant,
+            persona_id=args.persona,
+            typed_input=True,
+            camera=not args.no_camera,
         )
         woz_factory = functools.partial(serve_woz, loaded=loaded) if args.woz else None
         print("Offline session: no LLM, babble voice. Try: /goto GAME_CROCODILE   /help")

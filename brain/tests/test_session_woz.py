@@ -262,10 +262,10 @@ async def test_games_commands(
     await s.until_phase("CHAT")
     unknown = await s.woz("start_game", game="chess")
     assert not unknown.ok and "quick_draw" in (unknown.error or "")
-    for unbuilt in ("staring", "rps_arms", "crocodile_human"):  # M6: a clear error, no game
+    for unbuilt in ("rps_arms", "crocodile_human"):  # M6: a clear error, no game
         refused = await s.woz("start_game", game=unbuilt)
         assert not refused.ok and "not built yet" in (refused.error or "")
-        assert "crocodile_robot, quick_draw" in (refused.error or "")
+        assert "crocodile_robot, quick_draw, staring" in (refused.error or "")
     assert s.ctl.state.phase == "CHAT" and s.ctl.state.chosen_game is None
     assert (await s.woz("start_game", game="quick_draw")).ok
     await s.until_phase("GAME_CHOSEN")
@@ -277,7 +277,7 @@ async def test_games_commands(
     assert start["game"] == "quick_draw" and start["placeholder"] is False
     assert s.data("game_end")[0]["result"] == "interrupted"
     refusals = [d for d in s.data("woz_action") if d["command"] == "start_game" and not d["ok"]]
-    assert len(refusals) == 5  # every refused command is logged with its error
+    assert len(refusals) == 4  # every refused command is logged with its error
 
 
 async def test_say_and_say_text(

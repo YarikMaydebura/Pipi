@@ -16,6 +16,7 @@ from pipi_brain.dialogue.llm import DialogueEngine
 from pipi_brain.dialogue.prompts import ChatMessage
 from pipi_brain.fakes import (
     FakeBangDetector,
+    FakeBlinkDetector,
     FakeBody,
     FakeClock,
     FakeSpeaker,
@@ -31,6 +32,7 @@ from pipi_brain.phases.game_context import SessionGameContext
 from pipi_brain.protocol import BrainToWoz, WozCommand
 from pipi_brain.speech.audio_gate import AudioGate
 from pipi_brain.speech.tts_cache import TtsCache
+from pipi_brain.vision.base import VisionCheck
 from pipi_brain.woz_api import CommandOutcome
 
 REAL_TIMEOUT_S = 10  # a test session must finish within this much REAL time
@@ -121,6 +123,7 @@ class Session:
     logger: StudyLogger
     rng: ScriptedRng = field(default_factory=ScriptedRng)
     bang: FakeBangDetector | None = None
+    blink: FakeBlinkDetector | None = None
     pushed: list[BrainToWoz] = field(default_factory=list)
 
     async def run(self) -> dict[str, Any]:
@@ -182,6 +185,8 @@ def make_session(
     tts_cache_dir: Path | None = None,
     bodies: dict[str, Any] | None = None,
     bang: list[object] | None = None,
+    blink: list[object] | None = None,
+    vision: VisionCheck | None = None,
     voice: bool = False,
     rng: ScriptedRng | None = None,
     **overrides: dict[str, Any],
@@ -201,6 +206,11 @@ def make_session(
         script=list(script or []), clock=clock, mode="voice" if has_mic else "typed"
     )
     detector = FakeBangDetector(clock, list(bang)) if bang is not None else None
+    blinker = (
+        FakeBlinkDetector(clock, list(blink), vision=vision or VisionCheck(ok=True, fps=30))
+        if blink is not None
+        else None
+    )
     rng = rng or ScriptedRng()
     chat = ScriptedChat(list(llm or []))
     stt, tts, speaker = FakeSpeechToText(), FakeTextToSpeech(), FakeSpeaker()
@@ -232,6 +242,7 @@ def make_session(
             clock=clock,
             tts_cache=cache,
             bang_detector=detector,
+            blink_detector=blinker,
             rng=rng,
         ),
         participant_id="P01",
@@ -239,7 +250,19 @@ def make_session(
         emit=lambda _: None,
     )
     session = Session(
-        ctl, clock, pet, robot, user, chat, stt, tts, speaker, logger, rng=rng, bang=detector
+        ctl,
+        clock,
+        pet,
+        robot,
+        user,
+        chat,
+        stt,
+        tts,
+        speaker,
+        logger,
+        rng=rng,
+        bang=detector,
+        blink=blinker,
     )
     ctl.subscribe(session.pushed.append)
     return session

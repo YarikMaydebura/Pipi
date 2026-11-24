@@ -31,6 +31,7 @@ from pipi_brain.phases.context import PhaseContext
 from pipi_brain.phases.voice import SayMeta
 from pipi_brain.protocol import Expression, EyeState
 from pipi_brain.speech.bang import BangDetector
+from pipi_brain.vision.base import BlinkDetector
 
 T = TypeVar("T")
 ACTING_GROUP = "crocodile"  # motions.yaml group of the act_* motions
@@ -48,6 +49,8 @@ def capabilities(ctx: PhaseContext) -> frozenset[str]:
         found.add("microphone")
         if ctx.bang_detector is not None:
             found.add("bang_detector")
+    if ctx.blink_detector is not None:
+        found.add("camera")  # the staring contest can watch for blinks (webcam)
     return frozenset(found)
 
 
@@ -79,6 +82,10 @@ class SessionGameContext:
     @property
     def bang_detector(self) -> BangDetector | None:
         return self._ctx.bang_detector if self._ctx.input.mode == "voice" else None
+
+    @property
+    def blink_detector(self) -> BlinkDetector | None:
+        return self._ctx.blink_detector
 
     @property
     def memory(self) -> Memory:

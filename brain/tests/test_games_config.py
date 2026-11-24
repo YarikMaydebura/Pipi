@@ -29,6 +29,13 @@ FAKE_ROBOT_CLIPS = {
     "duel_draw",
     "duel_hit",
     "duel_win",
+    # staring + arm RPS (procedural on the fake robot, web/src/fake-robot/gameMotions.ts)
+    "stare_ready",
+    "stare_lose",
+    "rps_shake",
+    "rps_rock",
+    "rps_paper",
+    "rps_scissors",
     "sad",
     "shrug",
     "bow",
@@ -166,12 +173,16 @@ def test_startup_check_catches_a_motion_that_is_not_in_the_library(tmp_path: Pat
 
 def test_setup_registers_only_the_built_games(dev_config: LoadedConfig) -> None:
     setup = load_game_setup(dev_config.app.games)
-    assert [game.id for game in setup.registry.registered] == ["crocodile_robot", "quick_draw"]
-    for unbuilt in ("staring", "rps_arms", "crocodile_human"):
+    assert [game.id for game in setup.registry.registered] == [
+        "crocodile_robot",
+        "quick_draw",
+        "staring",
+    ]
+    for unbuilt in ("rps_arms", "crocodile_human"):
         assert setup.registry.info(unbuilt) is not None  # known ...
         assert setup.registry.implementation(unbuilt) is None  # ... but not built
     check_session(setup, dev_config.app.session)
-    bad = dev_config.app.session.model_copy(update={"default_game": "staring"})
+    bad = dev_config.app.session.model_copy(update={"default_game": "rps_arms"})
     with pytest.raises(ConfigError, match="default_game"):
         check_session(setup, bad)
     bad = dev_config.app.session.model_copy(update={"first_game": "chess"})

@@ -23,6 +23,7 @@ from pipi_brain.games.config import GamesConfig
 from pipi_brain.memory import Memory
 from pipi_brain.protocol import Expression, EyeState
 from pipi_brain.speech.bang import BangDetector
+from pipi_brain.vision.base import BlinkDetector
 
 T = TypeVar("T")
 ChatMessage = dict[str, str]
@@ -97,6 +98,9 @@ class GameContext(Protocol):
 
     @property
     def bang_detector(self) -> BangDetector | None: ...
+
+    @property
+    def blink_detector(self) -> BlinkDetector | None: ...  # staring contest; None = pretend
 
     @property
     def memory(self) -> Memory: ...

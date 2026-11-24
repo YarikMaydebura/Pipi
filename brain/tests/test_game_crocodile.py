@@ -311,8 +311,10 @@ async def test_words_never_repeat_in_a_session(fx: Fixtures) -> None:
     assert game.rounds("study") == 1  # nothing left, but never zero rounds
     outcome = await table.play(GAME)  # the WoZ starts it anyway: Pipi says it cannot
     assert outcome.result == "unavailable"
-    assert table.s.ctl.registry.available(table.ctx.capabilities) == (
-        table.s.ctl.registry.implementation("quick_draw"),
+    registry = table.s.ctl.registry
+    assert registry.available(table.ctx.capabilities) == (
+        registry.implementation("quick_draw"),
+        registry.implementation("staring"),
     )
 
 

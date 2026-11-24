@@ -127,15 +127,19 @@ async def play(table: GameTable, game: Game) -> Any:
 def test_registry_hides_games_that_cannot_be_played(dev_config: LoadedConfig) -> None:
     registry = build_registry(load_game_setup(dev_config.app.games).config)
     everything = frozenset({"speech", "motions", "acting_motions", "microphone", "bang_detector"})
-    assert [g.id for g in registry.available(everything)] == ["crocodile_robot", "quick_draw"]
-    # no acting motions on this body (the pet, or the real robot before M5): Crocodile has no
-    # fallback -> hidden; the duel has one (typed / slow motion) -> still offered
-    on_the_pet = frozenset({"speech", "motions"})
-    assert [g.id for g in registry.available(on_the_pet)] == ["quick_draw"]
-    assert [g.id for g in registry.available(frozenset({"speech"}))] == ["quick_draw"]
-    # the three games of M6 are known for the keyword map but never offered
-    assert {info.id for info in KNOWN_GAMES} - {g.id for g in registry.registered} == {
+    assert [g.id for g in registry.available(everything)] == [
+        "crocodile_robot",
+        "quick_draw",
         "staring",
+    ]
+    # no acting motions on this body (the pet, or the real robot before M5): Crocodile has no
+    # fallback -> hidden; the duel (typed / slow motion) and the staring contest (pretend
+    # mode, no camera) have one -> still offered
+    on_the_pet = frozenset({"speech", "motions"})
+    assert [g.id for g in registry.available(on_the_pet)] == ["quick_draw", "staring"]
+    assert [g.id for g in registry.available(frozenset({"speech"}))] == ["quick_draw", "staring"]
+    # the M6 games that are not built yet are known for the keyword map but never offered
+    assert {info.id for info in KNOWN_GAMES} - {g.id for g in registry.registered} == {
         "rps_arms",
         "crocodile_human",
     }
@@ -419,15 +423,21 @@ async def test_silence_blocks_every_kind_of_speech(fx: Fixtures) -> None:
 async def test_motions_go_through_the_library(fx: Fixtures) -> None:
     table = await make_game_table(*fx)
     assert await table.ctx.play_motion("act_bird") is True
-    assert await table.ctx.play_motion("rps_rock") is False  # no body can play it yet
-    assert await table.ctx.play_motion("moonwalk") is False
-    await table.ctx.say_line("crocodile_watch", gesture="rps_rock")
+    assert await table.ctx.play_motion("moonwalk") is False  # not in motions.yaml at all
     assert table.robot_did("motion") == [("motion", "act_bird")]
-    skipped = table.s.data("motion_skipped")
-    assert [d["motion"] for d in skipped] == ["rps_rock", "moonwalk", "rps_rock"]
-    assert skipped[0]["body"] == "fake_robot"
     # typed session: no microphone, so no bang detector
     assert table.ctx.capabilities == {"speech", "motions", "acting_motions"}
+    # back on the pet: it has no acting motions, so act_bird is skipped there (and logged)
+    await table.run(table.s.ctl.bodies.migrate_in())
+    assert await table.ctx.play_motion("act_bird") is False
+    await table.ctx.say_line("crocodile_watch", gesture="act_bird")
+    assert ("motion", "act_bird") not in table.s.pet.calls
+    skipped = table.s.data("motion_skipped")
+    assert [(d["motion"], d["body"]) for d in skipped] == [
+        ("moonwalk", "fake_robot"),
+        ("act_bird", "desktop_pet"),
+        ("act_bird", "desktop_pet"),
+    ]
 
 
 async def test_capabilities_follow_the_microphone_and_the_body(fx: Fixtures) -> None:
@@ -450,7 +460,10 @@ async def test_capabilities_follow_the_microphone_and_the_body(fx: Fixtures) -> 
     assert with_mic.s.ctl.bodies.active_name == "desktop_pet"
     assert with_mic.ctx.capabilities == {"speech", "motions"}
     registry = with_mic.s.ctl.registry
-    assert [g.id for g in registry.available(with_mic.ctx.capabilities)] == ["quick_draw"]
+    assert [g.id for g in registry.available(with_mic.ctx.capabilities)] == [
+        "quick_draw",
+        "staring",
+    ]
 
 
 async def test_woz_signals_reach_a_waiting_game_only() -> None:
