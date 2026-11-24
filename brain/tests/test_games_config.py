@@ -177,12 +177,13 @@ def test_setup_registers_only_the_built_games(dev_config: LoadedConfig) -> None:
         "crocodile_robot",
         "quick_draw",
         "staring",
+        "rps_arms",
     ]
-    for unbuilt in ("rps_arms", "crocodile_human"):
+    for unbuilt in ("crocodile_human",):
         assert setup.registry.info(unbuilt) is not None  # known ...
         assert setup.registry.implementation(unbuilt) is None  # ... but not built
     check_session(setup, dev_config.app.session)
-    bad = dev_config.app.session.model_copy(update={"default_game": "rps_arms"})
+    bad = dev_config.app.session.model_copy(update={"default_game": "crocodile_human"})
     with pytest.raises(ConfigError, match="default_game"):
         check_session(setup, bad)
     bad = dev_config.app.session.model_copy(update={"first_game": "chess"})

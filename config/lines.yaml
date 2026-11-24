@@ -148,6 +148,31 @@ lines:
   staring_admitted:
     default: "You blinked? Thanks for being honest. This one's mine!"
 
+  # --- Arm rock-paper-scissors (docs/GAMES.md §3.4). {you} / {me} = rock | paper | scissors ---
+  rps_rules:
+    default: "Rock, paper, scissors, with arms! Rock is arms down, paper is arms wide, scissors is arms crossed. Show me yours and say it!"
+  rps_count:
+    default: "Rock... paper... scissors..."
+  rps_shoot:
+    default: "Shoot!"
+  rps_unclear:
+    default: "Was that rock, paper or scissors?"
+  rps_no_answer:
+    default: "I didn't hear your choice. That round doesn't count."
+  rps_you_win:
+    default: "Your {you} beats my {me}! Your point."
+  rps_robot_wins:
+    default: "My {me} beats your {you}! My point."
+    witty: "My {me} beats your {you}! Robots one, humans zero."
+  rps_draw:
+    default: "We both chose {me}! No points."
+  rps_final_you:
+    default: "You win, {score}! Rock-paper-scissors champion."
+  rps_final_robot:
+    default: "I win, {score}! Good game."
+  rps_final_draw:
+    default: "It's a tie, {score}! Good game."
+
   # --- Goodbye / RETURN fallbacks (used only when the LLM fails). {moment} = a game moment
   # from memory.game_events, already a full sentence ("You guessed that I was a bird ...!"). ---
   robot_goodbye:

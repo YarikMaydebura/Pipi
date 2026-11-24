@@ -110,8 +110,10 @@ class StaringConfig(_Strict):
 
 
 class RpsArmsConfig(_Strict):
-    rounds: int = Field(ge=1, le=9)
-    mode: Literal["camera", "voice"]
+    rounds: int = Field(ge=1, le=9)  # best of N (odd)
+    mode: Literal["camera", "voice"]  # camera mode is not built yet: plays by voice
+    answer_s: float = Field(gt=0, le=60)  # silence after "Shoot!" -> the round does not count
+    choice_words: dict[Literal["rock", "paper", "scissors"], list[str]]  # what counts as said
 
 
 class GamesConfig(_Strict):

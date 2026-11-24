@@ -227,7 +227,7 @@ async def test_session_loads_the_games_and_reports_the_bang_detector(
     )
     lines = (folder(loaded) / "events.jsonl").read_text("utf-8").splitlines()
     start = json.loads(lines[0])["data"]
-    assert start["games"]["built"] == ["crocodile_robot", "quick_draw", "staring"]
+    assert start["games"]["built"] == ["crocodile_robot", "quick_draw", "staring", "rps_arms"]
     assert start["games"]["bang_detector"] is False  # typed session: Enter is the bang
     assert start["components"]["bang_detector"].startswith("not used (no microphone)")
 

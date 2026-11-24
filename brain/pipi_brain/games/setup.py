@@ -16,6 +16,7 @@ from pipi_brain.games.crocodile import CrocodileRobot
 from pipi_brain.games.motions import MotionLibrary, load_motions
 from pipi_brain.games.quick_draw import QuickDraw
 from pipi_brain.games.registry import GameRegistry
+from pipi_brain.games.rps import RockPaperScissors
 from pipi_brain.games.staring import Staring
 
 
@@ -32,7 +33,8 @@ def build_registry(config: GamesConfig) -> GameRegistry:
     registry.register(CrocodileRobot(config.crocodile))
     registry.register(QuickDraw(config.quick_draw))
     registry.register(Staring(config.staring))
-    # M6: rps_arms and crocodile_human are registered here once they are built.
+    registry.register(RockPaperScissors(config.rps_arms))
+    # M6: crocodile_human (stretch goal) is registered here once it is built.
     return registry
 
 

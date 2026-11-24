@@ -131,16 +131,17 @@ def test_registry_hides_games_that_cannot_be_played(dev_config: LoadedConfig) ->
         "crocodile_robot",
         "quick_draw",
         "staring",
+        "rps_arms",
     ]
     # no acting motions on this body (the pet, or the real robot before M5): Crocodile has no
-    # fallback -> hidden; the duel (typed / slow motion) and the staring contest (pretend
-    # mode, no camera) have one -> still offered
+    # fallback -> hidden; the duel (typed / slow motion), the staring contest (pretend mode)
+    # and rock-paper-scissors (voice mode) have one -> still offered
     on_the_pet = frozenset({"speech", "motions"})
-    assert [g.id for g in registry.available(on_the_pet)] == ["quick_draw", "staring"]
-    assert [g.id for g in registry.available(frozenset({"speech"}))] == ["quick_draw", "staring"]
+    no_body = ["quick_draw", "staring", "rps_arms"]
+    assert [g.id for g in registry.available(on_the_pet)] == no_body
+    assert [g.id for g in registry.available(frozenset({"speech"}))] == no_body
     # the M6 games that are not built yet are known for the keyword map but never offered
     assert {info.id for info in KNOWN_GAMES} - {g.id for g in registry.registered} == {
-        "rps_arms",
         "crocodile_human",
     }
     camera_game = StubGame([win()], requires=frozenset({"camera"}))
@@ -463,6 +464,7 @@ async def test_capabilities_follow_the_microphone_and_the_body(fx: Fixtures) -> 
     assert [g.id for g in registry.available(with_mic.ctx.capabilities)] == [
         "quick_draw",
         "staring",
+        "rps_arms",
     ]
 
 

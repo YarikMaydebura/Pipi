@@ -315,6 +315,7 @@ async def test_words_never_repeat_in_a_session(fx: Fixtures) -> None:
     assert registry.available(table.ctx.capabilities) == (
         registry.implementation("quick_draw"),
         registry.implementation("staring"),
+        registry.implementation("rps_arms"),
     )
 
 
