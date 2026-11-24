@@ -97,7 +97,9 @@ class BlinkSettings:
     baseline_window: int = 90  # recent EAR values the baseline is taken from
     baseline_percentile: float = 90.0
     baseline_min_samples: int = 10  # no blinks before the baseline has this many values
-    check_s: float = 1.0  # check(): how long to sample
+    check_s: float = 1.0  # check(): judged over the last second of frames
+    check_warmup_s: float = 0.5  # check(): frames right after opening are skipped (dark)
+    check_max_s: float = 3.0  # check(): give up after this long (then: pretend mode)
     min_face_share: float = 0.5  # check(): face in at least half of the frames
     open_timeout_s: float = 10.0  # camera open (Windows can be slow)
     first_frame_timeout_s: float = 5.0
@@ -280,14 +282,11 @@ class WebcamBlinkDetector:
     async def check(self) -> VisionCheck:
         try:
             await self._ensure_ready()
-            times, faces = await self._sample(self._s.check_s)
+            return await self._sample_until_ok()
         except BlinkDetectorError as exc:
             return VisionCheck(ok=False, reason=str(exc))
         except Exception as exc:  # check() never raises: anything odd -> pretend mode
             return VisionCheck(ok=False, reason=describe_error(exc))
-        return judge_check(
-            times, faces, min_fps=self._min_fps, min_face_share=self._s.min_face_share
-        )
 
     async def wait_for_blink(self) -> Blink:
         await self._ensure_ready()
@@ -337,21 +336,37 @@ class WebcamBlinkDetector:
         except Exception as exc:  # download failed, broken install ...
             raise BlinkDetectorError(f"face model failed: {describe_error(exc)}") from exc
 
-    async def _sample(self, seconds: float) -> tuple[list[float], int]:
-        """Process frames for ``seconds``: their capture times and how many showed a face."""
+    async def _sample_until_ok(self) -> VisionCheck:
+        """Skip the warm-up, then judge the last ``check_s`` of frames until it is good
+        enough or ``check_max_s`` is over (a dark first frame or a late face is no reason
+        for pretend mode). Also warms up the open-eye baseline."""
+        s = self._s
         start = self.now()
         latest = self._capture.latest()
         last_index = latest.index if latest is not None else 0
-        times: list[float] = []
-        faces = 0
-        while self.now() - start < seconds:
+        window: deque[tuple[float, bool]] = deque()
+        verdict = VisionCheck(ok=False, reason="no frames")
+        while self.now() - start < s.check_max_s:
             frame = await self._next_frame(last_index)
             last_index = frame.index
             ear = await self._process(frame.image, frame.captured_at)
-            self.tracker.update(frame.captured_at, ear)  # warms up the open-eye baseline
-            times.append(frame.captured_at)
-            faces += ear is not None
-        return times, faces
+            self.tracker.update(frame.captured_at, ear)
+            if frame.captured_at - start < s.check_warmup_s:
+                continue
+            window.append((frame.captured_at, ear is not None))
+            while window and frame.captured_at - window[0][0] > s.check_s:
+                window.popleft()
+            if frame.captured_at - start < s.check_warmup_s + s.check_s:
+                continue  # not a full window yet
+            verdict = judge_check(
+                [t for t, _ in window],
+                sum(face for _, face in window),
+                min_fps=self._min_fps,
+                min_face_share=s.min_face_share,
+            )
+            if verdict.ok:
+                return verdict
+        return verdict
 
     async def _next_frame(self, after_index: int) -> Any:
         try:

@@ -7,7 +7,12 @@ import threading
 
 import pytest
 
-from pipi_brain.vision.webcam import CameraError, OpenCvFrameSource, WebcamCapture
+from pipi_brain.vision.webcam import (
+    CameraError,
+    OpenCvFrameSource,
+    WebcamCapture,
+    request_camera_access,
+)
 
 from .test_vision_fakes import ScriptedSource, no_camera
 
@@ -112,3 +117,35 @@ def test_opencv_source_without_open_reads_nothing() -> None:
     source = OpenCvFrameSource(0)  # constructing it never touches the camera
     assert source.read() is None
     source.release()
+
+
+# --- macOS camera permission (the dialog can only come from the main thread) -----------------
+
+
+def test_camera_access_is_only_requested_on_macos() -> None:
+    opened: list[int] = []
+
+    def opener(index: int) -> bool:
+        opened.append(index)
+        return True
+
+    assert request_camera_access(0, platform="win32", opener=opener) is None
+    assert opened == []  # Windows / Linux: nothing is opened up front
+
+
+def test_camera_access_on_macos_opens_the_camera_once() -> None:
+    opened: list[int] = []
+
+    def opener(index: int) -> bool:
+        opened.append(index)
+        return True
+
+    assert request_camera_access(1, platform="darwin", opener=opener) is None
+    assert opened == [1]
+
+
+def test_denied_camera_access_explains_where_to_allow_it() -> None:
+    problem = request_camera_access(0, platform="darwin", opener=lambda index: False)
+
+    assert problem is not None and "Privacy & Security > Camera" in problem
+    assert "VS Code" in problem  # the app that runs the command needs the permission

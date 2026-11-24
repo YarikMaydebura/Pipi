@@ -25,6 +25,7 @@ from pipi_brain.games.config import load_games_config
 from pipi_brain.resilience import with_timeout
 from pipi_brain.vision.base import BlinkDetector, BlinkDetectorError
 from pipi_brain.vision.blink import WebcamBlinkDetector
+from pipi_brain.vision.webcam import request_camera_access
 
 DEFAULT_SECONDS = 20.0
 
@@ -88,6 +89,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     except ConfigError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 2
+    # macOS asks for camera permission only from the main thread: do it before asyncio.
+    problem = request_camera_access(args.camera)
+    if problem is not None:
+        print(f"check: no camera access -> {problem}")
+        return 1
     detector = WebcamBlinkDetector(
         min_fps=games.staring.min_fps_for_detect, camera_index=args.camera
     )

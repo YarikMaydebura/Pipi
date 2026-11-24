@@ -30,9 +30,42 @@ FAILED_READ_PAUSE_S = 0.02
 THREAD_JOIN_TIMEOUT_S = 2.0
 
 PERMISSION_HINT = (
-    "macOS: System Settings > Privacy & Security > Camera, allow the terminal app; "
+    "macOS: System Settings > Privacy & Security > Camera, allow the app you run the command "
+    "in (Terminal, iTerm or VS Code), or run tools.blink_check once to get the dialog; "
     "Windows: Settings > Privacy > Camera, allow desktop apps"
 )
+
+
+def request_camera_access(
+    index: int = 0,
+    *,
+    platform: str = sys.platform,
+    opener: Callable[[int], bool] | None = None,
+) -> str | None:
+    """macOS: open the camera once so the system can ask for permission. None = it opened.
+
+    Call it on the MAIN thread, before ``asyncio.run``: OpenCV can only show the macOS
+    permission dialog from the main thread, and the capture itself runs in a background
+    thread (where it just fails with "not authorized"). Other systems: nothing is opened.
+    """
+    if platform != "darwin":
+        return None
+    open_once = opener or _open_once
+    try:
+        opened = open_once(index)
+    except ImportError:
+        return 'opencv not installed (pip install -e ".[vision]")'
+    return None if opened else f"cannot open camera {index} ({PERMISSION_HINT})"
+
+
+def _open_once(index: int) -> bool:
+    import cv2  # optional dependency
+
+    capture = cv2.VideoCapture(index, cv2.CAP_AVFOUNDATION)
+    try:
+        return bool(capture.isOpened())
+    finally:
+        capture.release()
 
 
 class CameraError(Exception):

@@ -24,7 +24,13 @@ from pipi_brain.vision.blink import (
 
 from .test_vision_fakes import CLOSED, OPEN, FakeFaceModel, ScriptedSource, no_camera
 
-FAST = BlinkSettings(check_s=0.2, first_frame_timeout_s=1.0, frame_timeout_s=0.5)
+FAST = BlinkSettings(
+    check_s=0.2,
+    check_warmup_s=0.05,
+    check_max_s=0.8,
+    first_frame_timeout_s=1.0,
+    frame_timeout_s=0.5,
+)
 
 
 def detector_with(
@@ -52,6 +58,18 @@ async def test_check_ok_with_a_face_and_fast_frames() -> None:
         assert result.ok, result.reason
         assert result.fps >= 10
         assert detector.tracker.baseline.value == pytest.approx(OPEN)  # warmed up by check
+    finally:
+        await detector.close()
+
+
+async def test_check_waits_for_the_camera_to_warm_up_and_the_face_to_appear() -> None:
+    # Live check, Nov 24: the first ~half second after opening the webcam is dark or the
+    # person is still sitting down. A 1 s sample from the very start said "no face" although
+    # the face was there right after. The check must look a little longer.
+    detector = detector_with(ScriptedSource([None] * 40, fps=100.0))  # 0.4 s without a face
+    try:
+        result = await detector.check()
+        assert result.ok, result.reason
     finally:
         await detector.close()
 
