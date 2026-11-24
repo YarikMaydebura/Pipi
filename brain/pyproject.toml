@@ -27,6 +27,15 @@ dev = [
     "pytest-cov>=5",
     "ruff>=0.6",
 ]
+# Webcam blink detector for the staring contest (vision/blink.py). Optional because MediaPipe
+# >= 0.10.30 has no wheel for Intel Macs (macOS x86_64); Windows and Apple-silicon Macs are
+# fine. Without it the detector reports "mediapipe not installed" and the game pretends.
+# opencv-contrib-python is what mediapipe itself pulls in: never add opencv-python(-headless)
+# next to it, both install the same ``cv2`` folder. <5: opencv 5 wheels need macOS 15.
+vision = [
+    "mediapipe>=1.2,<2",
+    "opencv-contrib-python>=4.10,<5",
+]
 
 [tool.setuptools.packages.find]
 include = ["pipi_brain*"]

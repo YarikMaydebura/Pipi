@@ -131,6 +131,123 @@ body.is-dragging {
   }
 }
 
+/* ---------- Persona cards (PERSONA_PICK) ---------- */
+
+/* Three small cards under Pipi, in the speech bubble's paper style. Each persona has its accent
+   from Pipi's own palette: cheerful = amber, calm = the eye teal, witty = the cheek coral. */
+.persona-cards {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  left: 10px;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.persona-cards[hidden] {
+  display: none;
+}
+
+.persona-card {
+  --card-accent: var(--color-eye-deep);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-height: 64px;
+  padding: 8px 8px 9px;
+  border: 1.5px solid var(--bubble-edge);
+  border-top: 4px solid var(--card-accent);
+  border-radius: 12px 12px 14px 14px;
+  background: var(--bubble-paper);
+  color: var(--bubble-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 10px 18px -12px rgb(16 38 43 / 60%);
+  opacity: 0;
+  transform: translateY(14px) scale(0.94);
+  transition:
+    opacity var(--duration-normal) ease-out,
+    transform var(--duration-normal) var(--ease-out-back),
+    border-color var(--duration-fast) ease-out,
+    box-shadow var(--duration-fast) ease-out;
+  transition-delay: calc(var(--card-index, 0) * 70ms);
+}
+
+.persona-card[data-persona='cheerful'] {
+  --card-accent: var(--color-amber);
+}
+
+.persona-card[data-persona='calm'] {
+  --card-accent: var(--color-eye-deep);
+}
+
+.persona-card[data-persona='witty'] {
+  --card-accent: var(--color-cheek);
+}
+
+.persona-cards[data-visible='true'] .persona-card {
+  opacity: 1;
+  transform: none;
+}
+
+.persona-card-label {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.persona-card-description {
+  font-size: 10.5px;
+  line-height: 1.25;
+  opacity: 0.78;
+}
+
+.persona-card:hover {
+  border-color: var(--card-accent);
+  box-shadow:
+    0 14px 20px -12px rgb(16 38 43 / 65%),
+    0 0 0 3px color-mix(in srgb, var(--card-accent) 22%, transparent);
+  transform: translateY(-3px);
+  transition-delay: 0ms;
+}
+
+.persona-card:focus-visible {
+  outline: 2px solid var(--card-accent);
+  outline-offset: 2px;
+}
+
+.persona-card:active {
+  transform: translateY(0) scale(0.97);
+}
+
+/* After a click: the chosen card lights up in its accent, the others step back. */
+.persona-cards[data-chosen] .persona-card {
+  opacity: 0.35;
+  transform: scale(0.96);
+  transition-delay: 0ms;
+}
+
+.persona-cards[data-chosen] .persona-card[data-chosen='true'] {
+  border-color: var(--card-accent);
+  background: color-mix(in srgb, var(--card-accent) 18%, var(--bubble-paper));
+  opacity: 1;
+  transform: translateY(-4px) scale(1.04);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .persona-card,
+  .persona-card:hover,
+  .persona-card:active,
+  .persona-cards[data-chosen] .persona-card,
+  .persona-cards[data-chosen] .persona-card[data-chosen='true'] {
+    transform: none;
+    transition: opacity var(--duration-fast) linear;
+  }
+}
+
 /* ---------- Debug label (dev only) ---------- */
 
 .debug-label {

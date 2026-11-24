@@ -17,6 +17,7 @@ Every factory can be replaced by fakes; that is how the tests run whole sessions
 
 from __future__ import annotations
 
+import importlib.util
 from collections.abc import Callable, Mapping
 from contextlib import AbstractAsyncContextManager, AsyncExitStack
 from dataclasses import dataclass
@@ -29,6 +30,7 @@ from pipi_brain.bodies.base import Body
 from pipi_brain.bodies.ridk import RidkConnector
 from pipi_brain.config import ConfigError, LoadedConfig
 from pipi_brain.dialogue.content import load_dialogue_content
+from pipi_brain.games.config import GamesConfig
 from pipi_brain.games.motions import MotionLibrary
 from pipi_brain.games.setup import check_session, load_game_setup
 from pipi_brain.logging_study import StudyLogger
@@ -42,6 +44,7 @@ from pipi_brain.server import BodyServer, BodyServerError
 from pipi_brain.speech.audio_gate import AudioGate
 from pipi_brain.speech.bang import MicBangDetector
 from pipi_brain.speech.tts_cache import TtsCache
+from pipi_brain.vision.base import BlinkDetector
 from pipi_brain.voice_app import DepsFactory, SessionOptions, build_real_deps
 from pipi_brain.woz_api import WozBackend
 
@@ -78,6 +81,7 @@ class SessionAppOptions:
     participant_id: str = "DEV"
     persona_id: str | None = None  # set = fixed persona, no PERSONA_PICK question
     typed_input: bool = False
+    camera: bool = True  # False (--no-camera): no webcam at all; the staring contest pretends
     auto_start: bool | None = None  # None = start by itself when there is no WoZ panel
 
 
@@ -114,6 +118,27 @@ def load_robot_moves(loaded: LoadedConfig, motions: MotionLibrary) -> MoveLibrar
     return moves
 
 
+BlinkFactory = Callable[[GamesConfig], tuple[BlinkDetector | None, str]]
+
+
+def vision_installed() -> bool:
+    """True if the optional vision packages are there (``pip install -e ".[vision]"``)."""
+    return all(importlib.util.find_spec(name) is not None for name in ("mediapipe", "cv2"))
+
+
+def build_blink_detector(games: GamesConfig) -> tuple[BlinkDetector | None, str]:
+    """The webcam blink detector for the staring contest, or None (the game pretends).
+
+    Creating it does not open the camera: that happens only during the staring contest.
+    """
+    if not vision_installed():
+        return None, 'not installed (pip install -e ".[vision]"): staring uses pretend mode'
+    from pipi_brain.vision.blink import WebcamBlinkDetector  # heavy: only when installed
+
+    detector = WebcamBlinkDetector(min_fps=games.staring.min_fps_for_detect)
+    return detector, "webcam (opens only during the staring contest)"
+
+
 def default_body_host(
     loaded: LoadedConfig, log: Callable[[str, Mapping[str, Any]], None], log_for: LogFor
 ) -> BodyHost:
@@ -143,10 +168,12 @@ async def run_session(
     deps_factory: DepsFactory = build_real_deps,
     body_host_factory: BodyHostFactory = default_body_host,
     clock: Clock | None = None,
+    blink_factory: BlinkFactory | None = None,
     emit: Callable[[str], None] = print,
 ) -> dict[str, Any]:
     """Run one full session; returns the summary. Raises ConfigError on bad content."""
     app = loaded.app
+    blink_factory = blink_factory or build_blink_detector
     if options.persona_id is not None:
         app = app.model_copy(
             update={
@@ -183,6 +210,11 @@ async def run_session(
         if bang_detector is not None
         else "not used (no microphone): typing + Enter is the bang"
     )
+    # The staring contest's webcam blink detector (the camera opens only during that game).
+    if options.camera:
+        blink_detector, health["blink_detector"] = blink_factory(game_setup.config)
+    else:
+        blink_detector, health["blink_detector"] = None, "off (--no-camera): staring pretends"
     logger = StudyLogger(app.logging.dir, options.participant_id)
     ref: dict[str, SessionController] = {}
 
@@ -247,6 +279,7 @@ async def run_session(
             clock=clock or RealClock(),
             tts_cache=tts_cache,
             bang_detector=bang_detector,
+            blink_detector=blink_detector,
         ),
         participant_id=options.participant_id,
         auto_start=auto_start,

@@ -2,7 +2,7 @@
 // none; an older alpha_mini.glb lacks the game clips). Each motion is a pure function from
 // progress p ∈ [0, 1] to a RobotPose offset from the rest pose. One-shots start and end at rest;
 // loops are seamless. This file holds the resting loops and the social gestures; the game motions
-// (act_*, duel_*) are in gameMotions.ts.
+// (act_*, duel_*, stare_*, rps_*) are in gameMotions.ts.
 import { GAME_MOTIONS } from './gameMotions';
 import {
   addPoses,
@@ -195,7 +195,7 @@ export const PROCEDURAL_MOTIONS: Readonly<Record<string, ProceduralMotion>> = {
       );
     },
   },
-  // act_* (crocodile) and duel_* (quick-draw duel)
+  // act_* (crocodile), duel_* (quick-draw duel), stare_* (staring contest), rps_* (arm rps)
   ...GAME_MOTIONS,
 };
 

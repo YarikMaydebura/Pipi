@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from pipi_brain.latency import TurnLatency, summarize, summarize_turns
-from pipi_brain.logging_study import LoggerError, StudyLogger
+from pipi_brain.logging_study import NAME_TOKEN, LoggerError, StudyLogger
 from pipi_brain.resilience import describe_error, redact_secrets, timed_call
 
 FIXED_NOW = datetime(2026, 12, 2, 10, 15, 3, 412000, tzinfo=timezone(timedelta(hours=1)))
@@ -99,3 +99,68 @@ async def test_timed_call_success_error_and_timeout() -> None:
 def test_secrets_are_redacted_from_error_texts() -> None:
     assert redact_secrets("key sk-proj-AbC123xyz_-9 rejected") == "key sk-*** rejected"
     assert "sk-abcdefgh" not in describe_error(RuntimeError("bad key sk-abcdefgh"))
+
+
+# --- the participant's first name stays out of events.jsonl (decision Nov 24) ---------------
+
+
+def _plain_logger(tmp_path: Path) -> StudyLogger:
+    ticks = iter(float(n) for n in range(1000))
+    return StudyLogger(tmp_path, "P03", monotonic=lambda: next(ticks), now=lambda: FIXED_NOW)
+
+
+def test_the_name_is_replaced_in_every_new_event(tmp_path: Path) -> None:
+    logger = _plain_logger(tmp_path)
+    logger.redact_name("Lena")
+
+    event = logger.log(
+        "turn",
+        {"speaker": "user", "text": "I'm lena, LENA!", "nested": {"say": ["Hi Lena."]}, "n": 3},
+    )
+
+    raw = logger.events_path.read_text("utf-8")
+    assert "lena" not in raw.lower()
+    assert event["data"]["text"] == f"I'm {NAME_TOKEN}, {NAME_TOKEN}!"
+    assert event["data"]["nested"] == {"say": [f"Hi {NAME_TOKEN}."]} and event["data"]["n"] == 3
+
+
+def test_events_written_before_the_name_was_known_are_redacted_too(tmp_path: Path) -> None:
+    # The participant says "I'm Lena" before the LLM has picked the name out of it.
+    logger = _plain_logger(tmp_path)
+    logger.log("turn", {"speaker": "user", "text": "I'm Lena"})
+    logger.log("phase_change", {"from": "GREETING", "to": "FOCUS"})
+
+    logger.redact_name("Lena")
+
+    events = logger.read_events()
+    assert [e["type"] for e in events] == ["turn", "phase_change"]
+    assert events[0]["data"]["text"] == f"I'm {NAME_TOKEN}"
+    assert "Lena" not in logger.events_path.read_text("utf-8")
+
+
+def test_only_whole_words_are_redacted(tmp_path: Path) -> None:
+    logger = _plain_logger(tmp_path)
+    logger.redact_name("Ann")
+
+    event = logger.log("turn", {"text": "Ann planned an annual plan with Anna"})
+
+    assert event["data"]["text"] == f"{NAME_TOKEN} planned an annual plan with Anna"
+
+
+def test_memory_json_keeps_the_name(tmp_path: Path) -> None:
+    logger = _plain_logger(tmp_path)
+    logger.redact_name("Lena")
+
+    path = logger.write_json("memory.json", {"name": "Lena"})
+
+    assert json.loads(path.read_text("utf-8"))["name"] == "Lena"
+
+
+@pytest.mark.parametrize("name", ["", " ", "x"])
+def test_empty_or_one_letter_names_change_nothing(tmp_path: Path, name: str) -> None:
+    logger = _plain_logger(tmp_path)
+    logger.redact_name(name)
+
+    event = logger.log("turn", {"text": "x marks the spot"})
+
+    assert event["data"]["text"] == "x marks the spot"

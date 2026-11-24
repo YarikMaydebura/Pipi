@@ -21,7 +21,9 @@ from pipi_brain.dialogue.content import DialogueContent
 from .session_harness import Session, make_session, turn
 
 Fixtures = tuple[LoadedConfig, DialogueContent, Path]
-MENU_QUESTION = "What do you want to play next? Crocodile or a duel?"
+MENU_QUESTION = (
+    "What do you want to play next: Crocodile, a duel, a staring contest or rock-paper-scissors?"
+)
 BIRD_MOMENT = "You guessed that I was a bird on the first try!"
 DUEL_MOMENT = "You beat me in the quick-draw duel, 2 to 0!"
 # Crocodile: bird in round 1, boxer in round 2 (the second answer comes after the 2.5 s
@@ -266,7 +268,7 @@ async def menu(fx: Fixtures, script: list[object], llm: list[object] | None = No
 async def test_menu_offers_only_built_games_and_uses_the_llm_intent(fx: Fixtures) -> None:
     s = await menu(fx, ["the one where you act"], [intent("start_game", "crocodile_robot")])
     assert MENU_QUESTION in s.pipi_said()
-    assert not any("staring" in text or "rock" in text for text in s.pipi_said())
+    assert not any("you act" in text for text in s.pipi_said())  # not built yet
     assert s.data("game_choice") == [
         {"heard": "the one where you act", "game": "crocodile_robot", "method": "llm"}
     ]
@@ -287,13 +289,16 @@ async def test_menu_keyword_fallback_when_the_llm_fails(fx: Fixtures) -> None:
 
 async def test_menu_explains_a_game_it_cannot_play_yet(fx: Fixtures) -> None:
     s = await menu(
-        fx, ["the blinking game", "okay, the duel"], [intent("start_game", "staring"), "{"]
+        fx, ["my turn to act", "okay, the duel"], [intent("start_game", "crocodile_human"), "{"]
     )
-    assert "I can't play that one yet. How about Crocodile or a duel?" in s.pipi_said()
+    assert (
+        "I can't play that one yet. How about Crocodile, a duel, a staring contest "
+        "or rock-paper-scissors?" in s.pipi_said()
+    )
     first, second = s.data("game_choice")
     assert first == {
-        "heard": "the blinking game",
-        "game": "staring",
+        "heard": "my turn to act",
+        "game": "crocodile_human",
         "method": "llm",
         "available": False,
     }
@@ -302,7 +307,10 @@ async def test_menu_explains_a_game_it_cannot_play_yet(fx: Fixtures) -> None:
 
 async def test_menu_one_clarifying_question_then_the_default_game(fx: Fixtures) -> None:
     s = await menu(fx, ["hmm", "I don't know"], [intent("clarify"), intent("unknown")])
-    assert "Sorry, which game? Crocodile or a duel?" in s.pipi_said()
+    assert (
+        "Sorry, which game: Crocodile, a duel, a staring contest or rock-paper-scissors?"
+        in s.pipi_said()
+    )
     assert "Let's do a duel then!" in s.pipi_said()
     assert s.data("clarification") == [{"reason": "unclear_intent"}] * 2
     assert s.data("game_choice") == [
@@ -325,7 +333,10 @@ async def test_menu_lists_the_games_on_request(fx: Fixtures) -> None:
         ["which games are there?", "crocodile"],
         [intent("list_games"), intent("start_game", "crocodile_robot")],
     )
-    assert "I can play Crocodile or a duel. Which one?" in s.pipi_said()
+    assert (
+        "I can play Crocodile, a duel, a staring contest or rock-paper-scissors. Which one?"
+        in s.pipi_said()
+    )
     assert s.data("clarification") == []  # asking for the list is not a failure
     assert s.data("game_choice")[0]["game"] == "crocodile_robot"
 
@@ -371,15 +382,23 @@ async def test_study_mode_plays_only_one_chosen_game(fx: Fixtures) -> None:
 # --- robot missing: the break runs on the screen ---
 
 
-async def test_on_the_pet_crocodile_is_skipped_and_only_the_duel_is_offered(fx: Fixtures) -> None:
-    s = make_session(*fx, robot_connected=False, script=["yes"])
+async def test_on_the_pet_crocodile_is_skipped_and_duel_or_staring_is_offered(
+    fx: Fixtures,
+) -> None:
+    s = make_session(*fx, robot_connected=False, script=["the duel"])
     await run_from(s, "GAME_CROCODILE", until="GAME_CHOSEN")
     # The pet has no acting motions: Pipi says so instead of standing still for 30 seconds.
     start, end = s.data("game_start")[0], s.data("game_end")[0]
     assert start["missing_requirements"] == ["acting_motions"] and end["result"] == "unavailable"
     assert "game_unavailable_now" in s.pipi_lines()
-    assert "Do you want to play a duel?" in s.pipi_said()
-    assert s.data("game_choice") == [{"heard": "yes", "game": "quick_draw", "method": "keyword"}]
+    # both have a no-body variant: the duel (typed / slow motion), staring (pretend mode)
+    assert (
+        "What do you want to play next: a duel, a staring contest or rock-paper-scissors?"
+        in s.pipi_said()
+    )
+    assert s.data("game_choice") == [
+        {"heard": "the duel", "game": "quick_draw", "method": "keyword"}
+    ]
     assert s.robot.calls == [] and ("motion", "act_bird") not in s.pet.calls
 
 
@@ -467,11 +486,12 @@ async def test_session_start_lists_the_games(fx: Fixtures) -> None:
     await s.woz("end_session")
     await task
     assert s.data("session_start")[0]["games"] == {
-        "built": ["crocodile_robot", "quick_draw"],
+        "built": ["crocodile_robot", "quick_draw", "staring", "rps_arms"],
         "first_game": "crocodile_robot",
         "default_game": "quick_draw",
         "good_sport": True,
         "bang_detector": True,
+        "blink_detector": False,
     }
 
 

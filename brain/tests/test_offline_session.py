@@ -79,3 +79,19 @@ def test_offline_main_can_open_the_woz_panel_and_fix_the_persona(
     assert isinstance(factory, functools.partial) and factory.func is serve_woz
     assert factory.keywords["loaded"].app.tts_cache.enabled is False  # the offline config
     assert seen["options"].persona_id == "cheerful"  # type: ignore[attr-defined]
+    assert seen["options"].camera is True  # type: ignore[attr-defined]
+
+
+def test_offline_main_can_switch_the_camera_off(
+    monkeypatch: pytest.MonkeyPatch, dev_config: LoadedConfig
+) -> None:
+    seen: dict[str, object] = {}
+
+    async def fake_run_session(loaded: LoadedConfig, options: object, **kwargs: object) -> dict:
+        seen.update(options=options)
+        return {}
+
+    monkeypatch.setattr(offline_session, "run_session", fake_run_session)
+
+    assert main(["--config", str(dev_config.source), "--no-camera"]) == 0
+    assert seen["options"].camera is False  # type: ignore[attr-defined]

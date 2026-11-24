@@ -18,7 +18,7 @@ import numpy as np
 from pipi_brain.bodies.base import NOT_CONNECTED, BodyResult, Entrance, Exit, SpeakResult
 from pipi_brain.dialogue.prompts import ChatMessage
 from pipi_brain.phases.inputs import TypedLine
-from pipi_brain.protocol import Expression, EyeState
+from pipi_brain.protocol import Expression, EyeState, PersonaOption
 from pipi_brain.speech.bang import Bang
 from pipi_brain.speech.base import (
     AudioFrame,
@@ -26,6 +26,7 @@ from pipi_brain.speech.base import (
     Samples,
     SpeechAudio,
 )
+from pipi_brain.vision.base import Blink, VisionCheck
 
 FAKE_TTS_RATE = 24000
 
@@ -187,6 +188,9 @@ class FakeBody:
     speak_delivered: bool = True
     stop_ok: bool = True  # False = the body does not ack `stop` (old workaround is used)
     on_speak: Callable[[], None] | None = None  # e.g. check the audio gate during speech
+    # set = when persona cards are shown, the participant clicks this target right away
+    persona_click: str | None = None
+    click_listeners: list[Callable[[str], None]] = field(default_factory=list)
     calls: list[tuple[str, object]] = field(default_factory=list)
     spoken: list[tuple[str, SpeechAudio | None, str]] = field(default_factory=list)
 
@@ -229,6 +233,21 @@ class FakeBody:
 
     async def set_calm(self, on: bool) -> BodyResult:
         return self._result("calm", on)
+
+    async def show_persona_picker(self, options: Sequence[PersonaOption]) -> BodyResult:
+        result = self._result("persona_picker", list(options))
+        if options and self.persona_click and self.connected:
+            asyncio.get_running_loop().call_soon(self.click, self.persona_click)
+        return result
+
+    def subscribe_clicks(self, listener: Callable[[str], None]) -> Callable[[], None]:
+        self.click_listeners.append(listener)
+        return lambda: self.click_listeners.remove(listener)
+
+    def click(self, target: str) -> None:
+        """The participant clicks something on this body (a persona card: "persona:<id>")."""
+        for listener in list(self.click_listeners):
+            listener(target)
 
     async def stop(self) -> BodyResult:
         result = self._result("stop", None)
@@ -321,6 +340,45 @@ class FakeBangDetector:
             await asyncio.Event().wait()  # never shoots (until cancelled)
         await self.clock.sleep(float(item))  # type: ignore[arg-type]
         return Bang(at=self.clock.now(), level_db=self.level_db)
+
+
+@dataclass
+class FakeBlinkDetector:
+    """Scripted blinks for the staring contest, on the session's (virtual) clock.
+
+    ``vision`` is what ``check()`` reports (default: detect mode possible). One script item
+    per ``wait_for_blink`` call: seconds after arming until the blink, ``None`` (never blinks:
+    waits until cancelled) or an exception (e.g. ``BlinkDetectorError``).
+    """
+
+    clock: FakeClock
+    script: list[object] = field(default_factory=list)
+    vision: VisionCheck = field(default_factory=lambda: VisionCheck(ok=True, fps=30.0))
+    armed: int = 0
+    checks: int = 0
+    closed: bool = False
+
+    def now(self) -> float:
+        return self.clock.now()
+
+    async def check(self) -> VisionCheck:
+        self.checks += 1
+        await asyncio.sleep(0)
+        return self.vision
+
+    async def wait_for_blink(self) -> Blink:
+        self.armed += 1
+        item = self.script.pop(0) if self.script else None
+        if isinstance(item, BaseException):
+            await asyncio.sleep(0)
+            raise item
+        if item is None:
+            await asyncio.Event().wait()  # never blinks (until cancelled)
+        await self.clock.sleep(float(item))  # type: ignore[arg-type]
+        return Blink(at=self.clock.now())
+
+    async def close(self) -> None:
+        self.closed = True
 
 
 @dataclass

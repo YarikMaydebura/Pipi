@@ -2,8 +2,11 @@
 // clip of that name. Crocodile: the robot acts a word out WITHOUT speaking, so every act_* must be
 // recognisable on its own from across a room — big, simple, repeated shapes. Quick-draw duel:
 // duel_ready is a tense stance that holds; the draw is fast; the hit is a dramatic slump.
-// act_* and duel_ready are seamless loops (they repeat until the next motion); the others are
-// one-shots that start and end at rest.
+// Staring contest: stare_ready is a still, leaning-in stare; stare_lose is the "my eyes!" reaction.
+// Rock-paper-scissors: rps_shake is one count-down pump (the game plays it three times); rps_rock /
+// rps_paper / rps_scissors show the robot's choice and hold it while Pipi judges.
+// act_*, duel_ready, stare_ready and the three rps choices are seamless loops (they repeat until
+// the next motion); the others are one-shots that start and end at rest.
 import {
   bump,
   hold,
@@ -292,6 +295,168 @@ function duelWin(p: number): RobotPose {
   });
 }
 
+// --- staring contest -----------------------------------------------------------------------
+
+/** Leaning in, chin up against the lean so the eyes stay square on the participant, arms loose. */
+const STARE = pose({
+  bodyBow: 0.12,
+  bodyLift: -0.006,
+  headPitch: -0.12,
+  armLForward: 0.12,
+  armRForward: 0.12,
+  armLRaise: 0.06,
+  armRRaise: 0.06,
+  elbowLBend: 0.3,
+  elbowRBend: 0.3,
+});
+
+/** Tense and almost motionless: only a slow breath; the head counters it so the gaze never moves. */
+function stareReady(p: number): RobotPose {
+  const breath = wave(p);
+  const sway = 0.008 * wave(p, 1, HALF_PI);
+  return {
+    ...STARE,
+    bodyLift: STARE.bodyLift + 0.003 * breath,
+    bodyBow: STARE.bodyBow + sway,
+    headPitch: STARE.headPitch - sway,
+    elbowLBend: STARE.elbowLBend + 0.02 * breath,
+    elbowRBend: STARE.elbowRBend + 0.02 * breath,
+  };
+}
+
+/** Lost the staring contest: the head snaps back, the robot turns away and rubs its eyes. */
+const STARE_FLINCH = pose({
+  bodyBow: -0.16,
+  bodyLift: 0.01,
+  headPitch: -0.32,
+  headYaw: 0.12,
+  armLRaise: 0.35,
+  armRRaise: 0.35,
+  elbowLBend: 0.4,
+  elbowRBend: 0.4,
+});
+const STARE_COVER = pose({
+  bodyYaw: 0.45,
+  bodyBow: 0.1,
+  headYaw: 0.15,
+  headPitch: 0.3,
+  headRoll: 0.1,
+  armLForward: 1.15,
+  armRForward: 1.15,
+  armLRaise: -1.05,
+  armRRaise: -1.05,
+  elbowLBend: 1.75,
+  elbowRBend: 1.75,
+});
+const STARE_LOSE_KEYS: readonly Keyframe[] = [
+  [0, REST],
+  [0.08, STARE_FLINCH],
+  [0.24, STARE_COVER],
+  [0.7, STARE_COVER],
+  [1, REST],
+];
+const RUB_FROM = 0.26;
+const RUB_SPAN = 0.42;
+
+function stareLose(p: number): RobotPose {
+  const base = throughKeys(p, STARE_LOSE_KEYS);
+  const rub = 0.16 * bump((p - RUB_FROM) / RUB_SPAN) * wave(p, 7); // the fists rub in turn
+  return {
+    ...base,
+    elbowLBend: base.elbowLBend + rub,
+    elbowRBend: base.elbowRBend - rub,
+    headRoll: base.headRoll + 0.4 * rub,
+  };
+}
+
+// --- rock-paper-scissors --------------------------------------------------------------------
+
+/** Count-down pump ("rock… paper… scissors…"): both fists come up, then beat down once. */
+const SHAKE_UP = pose({
+  armLForward: 1.25,
+  armRForward: 1.25,
+  armLRaise: -0.1,
+  armRRaise: -0.1,
+  elbowLBend: 1.5,
+  elbowRBend: 1.5,
+  headPitch: -0.06,
+  bodyLift: 0.006,
+});
+const SHAKE_DOWN = pose({
+  armLForward: 0.45,
+  armRForward: 0.45,
+  armLRaise: -0.1,
+  armRRaise: -0.1,
+  elbowLBend: 0.9,
+  elbowRBend: 0.9,
+  headPitch: 0.1,
+  bodyBow: 0.05,
+  bodyLift: -0.008,
+});
+const SHAKE_KEYS: readonly Keyframe[] = [
+  [0, REST],
+  [0.38, SHAKE_UP],
+  [0.62, SHAKE_DOWN],
+  [1, REST],
+];
+
+/** Rock: both arms down, the fists pulled together in front of the belly, set low and solid. */
+const ROCK = pose({
+  armLForward: 0.3,
+  armRForward: 0.3,
+  armLRaise: -0.7,
+  armRRaise: -0.7,
+  elbowLBend: 0.85,
+  elbowRBend: 0.85,
+  bodyLift: -0.018,
+  bodyBow: 0.06,
+  headPitch: 0.06,
+});
+/** Paper: both arms straight out to the sides, chest open. */
+const PAPER = pose({
+  armLRaise: 1.4,
+  armRRaise: 1.4,
+  armLForward: 0.2,
+  armRForward: 0.2,
+  elbowLBend: 0.08,
+  elbowRBend: 0.08,
+  bodyBow: -0.04,
+  bodyLift: 0.006,
+  headPitch: -0.06,
+});
+/** Scissors: both arms cross in a big X in front of the chest. */
+const SCISSORS = pose({
+  armLForward: 1.0,
+  armRForward: 1.0,
+  armLRaise: -1.15,
+  armRRaise: -1.05,
+  elbowLBend: 0.7,
+  elbowRBend: 0.7,
+  headPitch: 0.04,
+});
+
+/** Holds a choice pose with a slow breath, so the robot is not frozen while Pipi judges. */
+function heldChoice(shape: RobotPose): (p: number) => RobotPose {
+  return (p) => ({
+    ...shape,
+    bodyLift: shape.bodyLift + 0.003 * wave(p),
+    elbowLBend: shape.elbowLBend + 0.02 * (1 + wave(p)),
+    elbowRBend: shape.elbowRBend + 0.02 * (1 + wave(p)),
+  });
+}
+
+export const STARE_RPS_MOTION_NAMES = [
+  'stare_ready',
+  'stare_lose',
+  'rps_shake',
+  'rps_rock',
+  'rps_paper',
+  'rps_scissors',
+] as const;
+/** The robot's rock-paper-scissors choice: held until the next motion. */
+export const RPS_CHOICE_MOTION_NAMES = ['rps_rock', 'rps_paper', 'rps_scissors'] as const;
+const CHOICE_ATTACK_S = 0.12; // the choice snaps out on "shoot!"
+
 export const ACT_MOTION_NAMES = [
   'act_bird',
   'act_boxer',
@@ -321,4 +486,20 @@ export const GAME_MOTIONS: Readonly<Record<string, ProceduralMotion>> = {
   },
   duel_hit: { durationS: 3.0, loop: false, attackS: 0.05, sample: (p) => throughKeys(p, HIT_KEYS) },
   duel_win: { durationS: 2.2, loop: false, sample: duelWin },
+  stare_ready: { durationS: 4.0, loop: true, sample: stareReady },
+  stare_lose: { durationS: 2.8, loop: false, attackS: 0.05, sample: stareLose },
+  rps_shake: {
+    durationS: 0.6,
+    loop: false,
+    attackS: 0.05,
+    sample: (p) => throughKeys(p, SHAKE_KEYS),
+  },
+  rps_rock: { durationS: 3.0, loop: true, attackS: CHOICE_ATTACK_S, sample: heldChoice(ROCK) },
+  rps_paper: { durationS: 3.0, loop: true, attackS: CHOICE_ATTACK_S, sample: heldChoice(PAPER) },
+  rps_scissors: {
+    durationS: 3.0,
+    loop: true,
+    attackS: CHOICE_ATTACK_S,
+    sample: heldChoice(SCISSORS),
+  },
 };

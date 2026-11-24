@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ACT_MOTION_NAMES } from './gameMotions';
+import { ACT_MOTION_NAMES, RPS_CHOICE_MOTION_NAMES, STARE_RPS_MOTION_NAMES } from './gameMotions';
 import {
   baseFadeSeconds,
   HELD_MAX_S,
@@ -125,12 +125,14 @@ describe('planMotion', () => {
     }
   });
 
-  it('acting loops and the duel stance are held; the other game motions play once', () => {
+  it('acting loops, stances and rps choices are held; the other game motions play once', () => {
+    const held = [...ACT_MOTION_NAMES, 'duel_ready', 'stare_ready', ...RPS_CHOICE_MOTION_NAMES];
+    const once = ['duel_draw', 'duel_hit', 'duel_win', 'sad', 'shrug', 'bow'];
     for (const hasClip of [ALL, NONE]) {
-      for (const name of [...ACT_MOTION_NAMES, 'duel_ready']) {
+      for (const name of held) {
         expect(planMotion(name, hasClip), name).toMatchObject({ mode: 'held' });
       }
-      for (const name of ['duel_draw', 'duel_hit', 'duel_win', 'sad', 'shrug', 'bow']) {
+      for (const name of [...once, 'stare_lose', 'rps_shake']) {
         expect(planMotion(name, hasClip), name).toMatchObject({ mode: 'once' });
       }
       expect(planMotion('think', hasClip)).toMatchObject({ mode: 'timed' });
@@ -138,11 +140,13 @@ describe('planMotion', () => {
   });
 
   it('keeps every held motion a loop clip, and no clip in both lists', () => {
-    expect(HELD_MOTIONS).toHaveLength(9);
+    expect(HELD_MOTIONS).toHaveLength(13); // 8 act_*, duel_ready, stare_ready, 3 rps choices
     for (const name of HELD_MOTIONS) expect(isLoopClip(name), name).toBe(true);
     for (const name of ONE_SHOT_CLIPS) expect(LOOP_CLIPS, name).not.toContain(name);
     expect(new Set(ROBOT_CLIPS).size).toBe(ROBOT_CLIPS.length);
     expect(ROBOT_CLIPS).toHaveLength(27); // 12 from M2 + 15 game clips
+    // staring / rps motions are procedural only: the glb is not expected to have them
+    for (const name of STARE_RPS_MOTION_NAMES) expect(ROBOT_CLIPS, name).not.toContain(name);
   });
 
   it('caps held motions far beyond a crocodile round, and times resting loops', () => {

@@ -87,6 +87,11 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     )
     parser.add_argument("--persona", default=None, help="Persona id (default: from config).")
     parser.add_argument(
+        "--no-camera",
+        action="store_true",
+        help="never use the webcam (the staring contest pretends), e.g. without camera consent",
+    )
+    parser.add_argument(
         "--max-turns", type=int, default=None, help="Stop after this many user turns."
     )
     parser.add_argument(
@@ -137,7 +142,10 @@ def _run_session(loaded: LoadedConfig, args: argparse.Namespace) -> int:
     from pipi_brain.session_app import SessionAppOptions, run_session
 
     options = SessionAppOptions(
-        participant_id=args.participant, persona_id=args.persona, typed_input=args.typed
+        participant_id=args.participant,
+        persona_id=args.persona,
+        typed_input=args.typed,
+        camera=not args.no_camera,
     )
     woz_factory = None
     if args.woz:

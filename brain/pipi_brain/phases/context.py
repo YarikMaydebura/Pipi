@@ -35,6 +35,7 @@ from pipi_brain.phases.woz_signals import WozSignals
 from pipi_brain.protocol import Expression, Phase
 from pipi_brain.speech.bang import BangDetector
 from pipi_brain.speech.base import SpeechToText
+from pipi_brain.vision.base import BlinkDetector
 
 T = TypeVar("T")
 
@@ -74,6 +75,7 @@ class PhaseContext:
     emit: Callable[[str], None]
     reading_text: str | None = None
     bang_detector: BangDetector | None = None  # quick-draw duel; None = typed / slow motion
+    blink_detector: BlinkDetector | None = None  # staring contest (webcam); None = pretend
 
     @property
     def registry(self) -> GameRegistry:
@@ -99,7 +101,9 @@ class PhaseContext:
         if not changed:
             return
         self.state.memory = memory
-        # Values stay out of events.jsonl (privacy): only memory.json holds e.g. the name.
+        # Values stay out of events.jsonl (privacy): only memory.json holds e.g. the name,
+        # and from now on the logger writes the name as [NAME] (also in earlier events).
+        self.events.logger.redact_name(memory.name)
         self.log("memory_update", {"fields": changed})
         self.events.logger.write_json("memory.json", memory.model_dump(mode="json"))
         self.push_state()

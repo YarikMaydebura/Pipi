@@ -106,6 +106,27 @@ export const Calm = z.strictObject({
   on: z.boolean(),
 });
 
+/** One persona card on the pet (from config/personas.yaml). */
+export const PersonaOption = z.strictObject({
+  id: z.string().regex(/^[a-z][a-z0-9_]{0,31}$/), // sent back as user_click "persona:<id>"
+  label: z.string().min(1).max(40),
+  description: z.string().max(120),
+});
+export type PersonaOption = z.infer<typeof PersonaOption>;
+
+/** user_click target of a persona card: "persona:<id>". */
+export const PERSONA_CLICK_PREFIX = 'persona:';
+
+/**
+ * Show the persona cards next to Pipi (pet only); an empty list hides them. A click on a card
+ * comes back as user_click with target "persona:<id>".
+ */
+export const PersonaPicker = z.strictObject({
+  type: z.literal('persona_picker'),
+  ...envelope,
+  options: z.array(PersonaOption).max(6),
+});
+
 /**
  * Emergency stop: end speech audio and motion at once, hide the caption, idle eyes. The body
  * stays active; it acks as soon as everything has stopped and sends no speech_done for the
@@ -125,6 +146,7 @@ export const BrainToBody = z.discriminatedUnion('type', [
   Caption,
   BodyConfig,
   Calm,
+  PersonaPicker,
   Stop,
 ]);
 export type BrainToBody = z.infer<typeof BrainToBody>;

@@ -60,12 +60,12 @@ lines:
     witty: "Okay, enough small talk. I have a challenge for you."
   # --- Game menu (M4, docs/GAMES.md §4). {options} = the games that can be played right now,
   # e.g. "Crocodile or a duel"; {game} = how the menu names a game, e.g. "a duel". ---
-  game_menu:
-    default: "What do you want to play next? {options}?"
+  game_menu:          # a colon, not "?": {options} may start with "a duel" (lowercase)
+    default: "What do you want to play next: {options}?"
   game_menu_one:      # only one game can be played right now
     default: "Do you want to play {options}?"
   game_menu_clarify:
-    default: "Sorry, which game? {options}?"
+    default: "Sorry, which game: {options}?"
   game_menu_list:
     default: "I can play {options}. Which one?"
   game_unavailable:
@@ -130,6 +130,48 @@ lines:
     default: "You win the duel, {score}! Fastest hands in the west."
   quick_draw_final_robot:
     default: "I win the duel, {score}! Good duel, partner."
+
+  # --- Staring contest (docs/GAMES.md §3.3) ---
+  staring_rules:
+    default: "Staring contest! Look into my eyes. The first one to blink loses."
+    witty: "Staring contest! Look into my eyes. Warning: robots are very good at this."
+  staring_rules_pretend:
+    default: "Staring contest! Look into my eyes. The first one to blink loses. Be honest: if you blink, tell me!"
+  staring_go:
+    default: "Ready... go!"
+  staring_you_win:
+    default: "Argh! My eyes! You win!"
+    witty: "Argh! My eyes are drying out. You win, human."
+  staring_you_blinked:
+    default: "You blinked! I win!"
+    witty: "You blinked! Robots don't need to, you know."
+  staring_admitted:
+    default: "You blinked? Thanks for being honest. This one's mine!"
+
+  # --- Arm rock-paper-scissors (docs/GAMES.md §3.4). {you} / {me} = rock | paper | scissors ---
+  rps_rules:
+    default: "Rock, paper, scissors, with arms! Rock is arms down, paper is arms wide, scissors is arms crossed. Show me yours and say it!"
+  rps_count:
+    default: "Rock... paper... scissors..."
+  rps_shoot:
+    default: "Shoot!"
+  rps_unclear:
+    default: "Was that rock, paper or scissors?"
+  rps_no_answer:
+    default: "I didn't hear your choice. That round doesn't count."
+  rps_you_win:
+    default: "Your {you} beats my {me}! Your point."
+  rps_robot_wins:
+    default: "My {me} beats your {you}! My point."
+    witty: "My {me} beats your {you}! Robots one, humans zero."
+  rps_draw:
+    default: "We both chose {me}! No points."
+  rps_final_you:
+    default: "You win, {score}! Rock-paper-scissors champion."
+  rps_final_robot:
+    default: "I win, {score}! Good game."
+  rps_final_draw:
+    default: "It's a tie, {score}! Good game."
 
   # --- Goodbye / RETURN fallbacks (used only when the LLM fails). {moment} = a game moment
   # from memory.game_events, already a full sentence ("You guessed that I was a bird ...!"). ---

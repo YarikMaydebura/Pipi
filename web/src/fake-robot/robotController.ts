@@ -148,7 +148,8 @@ export class RobotController {
         return this.sleep();
       case 'body_config':
       case 'calm':
-        return OK; // desktop-pet settings: nothing to do for a robot
+      case 'persona_picker':
+        return OK; // desktop-pet settings and cards: nothing to do for a robot
       case 'stop':
         return this.stop();
     }

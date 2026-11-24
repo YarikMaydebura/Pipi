@@ -15,7 +15,7 @@ import pytest
 
 from pipi_brain.bodies.desktop_pet import DesktopPetBody, caption_seconds, encode_audio_wav_b64
 from pipi_brain.config import BodiesConfig
-from pipi_brain.protocol import Ack, Hello, SpeechDone
+from pipi_brain.protocol import Ack, Hello, SpeechDone, UserClick
 from pipi_brain.speech.base import SpeechAudio
 
 SETTINGS = BodiesConfig(
@@ -242,3 +242,30 @@ async def test_stop_without_an_ack_fails_fast_and_is_not_resent() -> None:
     assert log.of("body_error")[-1]["message_type"] == "stop"
     missing, _, _ = make_pet()
     assert (await missing.stop()).error == "not connected"
+
+
+async def test_clicks_reach_listeners_until_they_unsubscribe() -> None:
+    pet, _, log = await connected_pet()
+    heard: list[str] = []
+    unsubscribe = pet.subscribe_clicks(heard.append)
+
+    pet.receive(UserClick(target="persona:calm"))
+    unsubscribe()
+    pet.receive(UserClick(target="pipi"))
+
+    assert heard == ["persona:calm"]
+    clicks = [e for e in log.of("body_message") if e.get("type") == "user_click"]
+    assert [c["target"] for c in clicks] == ["persona:calm", "pipi"]  # always logged
+
+
+async def test_a_broken_click_listener_is_logged_and_does_not_break_the_body() -> None:
+    pet, _, log = await connected_pet()
+
+    def broken(target: str) -> None:
+        raise RuntimeError("listener bug")
+
+    pet.subscribe_clicks(broken)
+    pet.receive(UserClick(target="pipi"))
+
+    assert log.of("body_error")[-1]["message_type"] == "user_click"
+    assert pet.connected

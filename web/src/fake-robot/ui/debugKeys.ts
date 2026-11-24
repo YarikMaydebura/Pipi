@@ -9,6 +9,8 @@
 //               motion or Escape)
 //   duel:       g duel_ready (holds)   f duel_draw   q duel_hit   y duel_win
 //               a whole round by hand: g  -  (wait)  =  f
+//   staring:    [ stare_ready (holds)   ] stare_lose
+//   rps:        , rps_shake   . rps_rock   / rps_paper   ; rps_scissors (the choices hold)
 import { BrainToBody, EyeState, type WithoutEnvelope } from '@pipi/shared';
 
 export const EYE_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '='];
@@ -36,6 +38,12 @@ export const MOTION_KEYS: Readonly<Record<string, string>> = {
   f: 'duel_draw',
   q: 'duel_hit',
   y: 'duel_win',
+  '[': 'stare_ready',
+  ']': 'stare_lose',
+  ',': 'rps_shake',
+  '.': 'rps_rock',
+  '/': 'rps_paper',
+  ';': 'rps_scissors',
 };
 
 /** The message a debug key stands for, or null. Pure (unit-tested). */

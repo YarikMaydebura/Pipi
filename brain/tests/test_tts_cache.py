@@ -93,7 +93,8 @@ async def test_session_prewarms_and_plays_fixed_lines_from_the_cache(
     report = s.data("tts_prewarm")[0]
     assert report["lines"] > 20 and report["failed"] == 0
     spoken = [d for d in s.data("turn") if d["speaker"] == "pipi"]
-    assert "Ta-da! Hi again, Lena!" in [d["text"] for d in spoken]
+    # the log has the line with the name redacted (privacy); the robot said it in full
+    assert "Ta-da! Hi again, [NAME]!" in [d["text"] for d in spoken]
     assert any(d["tts_cached"] for d in spoken if d.get("line_id"))
     # no participant data on disk: lines with the name are never cached
     assert s.ctl.voice._cache is not None  # type: ignore[attr-defined]

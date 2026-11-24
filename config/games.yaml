@@ -59,4 +59,9 @@ staring:
   min_fps_for_detect: 10
 rps_arms:
   rounds: 3
-  mode: camera            # camera | voice
+  mode: camera            # camera | voice (camera mode is not built yet: it plays by voice)
+  answer_s: 10            # no answer after "Shoot!" within this -> the round does not count
+  choice_words:           # whole words / phrases the participant may say
+    rock: [rock, stone, fist]
+    paper: [paper, flat hand, open hand]
+    scissors: [scissors, scissor, cut]

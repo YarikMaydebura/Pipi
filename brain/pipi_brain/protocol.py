@@ -107,6 +107,29 @@ class Calm(Envelope):
     on: bool
 
 
+class PersonaOption(BaseModel):
+    """One persona card on the pet (from config/personas.yaml)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    id: str = Field(pattern=r"^[a-z][a-z0-9_]{0,31}$")  # sent back as user_click "persona:<id>"
+    label: str = Field(min_length=1, max_length=40)
+    description: str = Field(max_length=120)
+
+
+PERSONA_CLICK_PREFIX = "persona:"  # user_click target of a persona card: "persona:<id>"
+
+
+class PersonaPicker(Envelope):
+    """Show the persona cards next to Pipi (pet only); an empty list hides them.
+
+    A click on a card comes back as ``user_click`` with target ``"persona:<id>"``.
+    """
+
+    type: Literal["persona_picker"] = "persona_picker"
+    options: list[PersonaOption] = Field(max_length=6)
+
+
 class Stop(Envelope):
     """Emergency stop: end speech audio and motion at once, hide the caption, idle eyes.
 
@@ -118,7 +141,16 @@ class Stop(Envelope):
 
 
 BrainToBody = Annotated[
-    Activate | Deactivate | Speak | Eyes | Motion | Caption | BodyConfig | Calm | Stop,
+    Activate
+    | Deactivate
+    | Speak
+    | Eyes
+    | Motion
+    | Caption
+    | BodyConfig
+    | Calm
+    | PersonaPicker
+    | Stop,
     Field(discriminator="type"),
 ]
 

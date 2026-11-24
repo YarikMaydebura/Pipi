@@ -74,10 +74,14 @@ export const CROCODILE_MOTIONS = [
 ] as const;
 /** Quick-draw duel (robot only): duel_ready holds until one of the others. */
 export const DUEL_MOTIONS = ['duel_ready', 'duel_draw', 'duel_hit', 'duel_win'] as const;
+export const STARE_MOTIONS = ['stare_ready', 'stare_lose'] as const;
+export const RPS_MOTIONS = ['rps_shake', 'rps_rock', 'rps_paper', 'rps_scissors'] as const;
 export const MOTION_SUGGESTIONS: readonly string[] = [
   ...SOCIAL_MOTIONS,
   ...CROCODILE_MOTIONS,
   ...DUEL_MOTIONS,
+  ...STARE_MOTIONS,
+  ...RPS_MOTIONS,
   'idle', // ends an acting loop without an emergency stop
 ];
 

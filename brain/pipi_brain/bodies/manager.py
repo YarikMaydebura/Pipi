@@ -20,14 +20,14 @@ from __future__ import annotations
 
 import asyncio
 import time
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 
 from pipi_brain.bodies.base import NOT_CONNECTED, Body, BodyResult, Entrance, Exit
 from pipi_brain.bodies.channel import BodyChannel
 from pipi_brain.phases.clock import Clock
-from pipi_brain.protocol import BodyHealth, Calm, EyeState
+from pipi_brain.protocol import BodyHealth, Calm, EyeState, PersonaOption
 
 PET = "desktop_pet"
 ROBOT_BODIES: dict[str, str] = {"fake": "fake_robot", "real": "alpha_mini"}
@@ -165,6 +165,25 @@ class BodyManager:
         else:
             result = BodyResult(ok=False, error="body cannot switch calm mode")
         return self._note(PET, result)
+
+    async def show_persona_picker(self, options: Sequence[PersonaOption]) -> BodyResult:
+        """Persona cards on the pet (PERSONA_PICK); an empty list hides them."""
+        pet = self.pet
+        if pet is None or not pet.connected:
+            return BodyResult(ok=False, error=NOT_CONNECTED)
+        show = getattr(pet, "show_persona_picker", None)
+        if not callable(show):
+            return BodyResult(ok=False, error="body has no persona cards")
+        result: BodyResult = await show(options)
+        return self._note(PET, result)
+
+    def subscribe_pet_clicks(self, listener: Callable[[str], None]) -> Callable[[], None]:
+        """``listener(target)`` for every click the pet reports; returns the unsubscribe."""
+        subscribe = getattr(self.pet, "subscribe_clicks", None)
+        if not callable(subscribe):
+            return lambda: None
+        unsubscribe: Callable[[], None] = subscribe(listener)
+        return unsubscribe
 
     def stop_all(self) -> None:
         """Emergency stop: every connected body stops talking and moving, right now.

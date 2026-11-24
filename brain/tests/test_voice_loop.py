@@ -137,7 +137,8 @@ async def test_voice_turn_happy_path_logs_latencies_and_remembers_the_name(
     assert h.tts.texts == [dialogue_content.line("opening", "cheerful"), "Nice to meet you, Lena!"]
     assert len(h.speaker.played) == 2
     user_turn = next(e["data"] for e in h.events("turn") if e["data"]["speaker"] == "user")
-    assert user_turn["text"] == "I'm Lena" and user_turn["input"] == "voice"
+    # the name is redacted in the log once Pipi has learned it (privacy, logging_study.py)
+    assert user_turn["text"] == "I'm [NAME]" and user_turn["input"] == "voice"
     assert user_turn["audio_ms"] > 0
     reply = h.pipi_turns()[1]
     for key in ("stt_ms", "llm_ms", "tts_ms", "total_ms"):

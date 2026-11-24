@@ -61,6 +61,10 @@ function fakeServices(log: string[], failMigration = false): PetServices {
       show: (text) => log.push(`caption:${text}`),
       hide: () => log.push('caption:hide'),
     },
+    personaCards: {
+      show: (options) => log.push(`cards:${options.map((o) => o.id).join(',')}`),
+      hide: () => log.push('cards:hide'),
+    },
     migration,
   };
 }
@@ -128,6 +132,21 @@ describe('PetController', () => {
     await pet.handle({ type: 'caption', text: 'Break time!', ...envelope });
     await pet.handle({ type: 'caption', text: null, ...envelope });
     expect(log).toEqual(['caption:Break time!', 'caption:hide']);
+  });
+
+  it('shows the persona cards and hides them on an empty list', async () => {
+    const log: string[] = [];
+    const pet = new PetController(fakeView(), fakeServices(log));
+    const options = [
+      { id: 'cheerful', label: 'Cheerful', description: 'Playful.' },
+      { id: 'calm', label: 'Calm', description: 'Gentle.' },
+    ];
+
+    const shown = await pet.handle({ type: 'persona_picker', options, ...envelope });
+    await pet.handle({ type: 'persona_picker', options: [], ...envelope });
+
+    expect(shown.ok).toBe(true);
+    expect(log).toEqual(['cards:cheerful,calm', 'cards:hide']);
   });
 
   it('wakes up and goes to sleep', async () => {
@@ -239,7 +258,7 @@ describe('PetController', () => {
     expect(pet.currentEyeState).toBe('determined');
   });
 
-  it('stop silences Pipi, hides the caption and rests in idle with idle eyes', async () => {
+  it('stop silences Pipi, hides the caption and the persona cards, rests in idle', async () => {
     const view = fakeView();
     const log: string[] = [];
     const pet = new PetController(view, fakeServices(log));
@@ -253,7 +272,7 @@ describe('PetController', () => {
     const result = await pet.handle({ type: 'stop', id: 's1', ts: 2 });
 
     expect(result).toEqual({ ok: true });
-    expect(log).toEqual(['speech:stop', 'caption:hide']);
+    expect(log).toEqual(['speech:stop', 'caption:hide', 'cards:hide']);
     expect(view.log).toEqual(['chest:false', 'level:0', 'face:clear', 'eyes:idle', 'base:idle!']);
     expect(pet.currentEyeState).toBe('idle');
     expect(pet.activity).toBe('idle'); // still active: free to react and to take new commands
@@ -292,7 +311,7 @@ describe('PetController', () => {
     await pet.handle({ type: 'stop', id: 's1', ts: 2 });
     expect(pet.activity).toBe('away');
     expect(view.log).toEqual(['chest:false', 'level:0']);
-    expect(log.slice(-2)).toEqual(['speech:stop', 'caption:hide']);
+    expect(log.slice(-3)).toEqual(['speech:stop', 'caption:hide', 'cards:hide']);
 
     const bare = await new PetController(fakeView()).handle({ type: 'stop', id: 's2', ts: 3 });
     expect(bare).toEqual({ ok: true });

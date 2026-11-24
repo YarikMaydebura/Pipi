@@ -245,6 +245,7 @@ describe('speak, eyes, motion and pet-only messages', () => {
       true,
     );
     expect((await robot.handle(message({ type: 'calm', on: true }))).ok).toBe(true);
+    expect((await robot.handle(message({ type: 'persona_picker', options: [] }))).ok).toBe(true);
     expect(view.eyes).toEqual(['idle']);
   });
 
