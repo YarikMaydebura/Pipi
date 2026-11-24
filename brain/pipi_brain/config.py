@@ -5,8 +5,8 @@ How loading works:
 2. If it has ``extends: base.yaml``, read that file first and deep-merge the mode file on top.
    So ``base.yaml`` holds every default and mode files only hold what differs.
 3. Validate the merged result with pydantic. Unknown keys are errors (typos fail loudly).
-4. Read secrets (``OPENAI_API_KEY``, ``WOZ_TOKEN``) from the environment, falling back to the
-   ``.env`` file. Secrets are ``SecretStr`` so they never show up when printed.
+4. Read secrets (``OPENAI_API_KEY``, ``WOZ_TOKEN``, ``RIDK_REALM``) from the environment,
+   falling back to the ``.env`` file. Secrets are ``SecretStr`` so they never show up when printed.
 
 All relative paths in YAML are resolved relative to the YAML file itself, so the brain behaves
 the same no matter which folder it is started from (Windows and macOS).
@@ -91,6 +91,10 @@ class BodiesConfig(_Section):
 
 class RobotConfig(_Section):
     body: Literal["fake_robot", "alpha_mini"]
+    # RidK (Robots in de Klas) WAMP router; the realm is a secret (RIDK_REALM in .env)
+    ridk_url: str = Field(pattern=r"^wss?://")
+    ridk_connect_timeout_s: float = Field(gt=0, le=60)
+    ridk_call_timeout_s: float = Field(gt=0, le=120)  # one RidK call (a motion can take seconds)
 
 
 class TimersConfig(_Section):
@@ -266,6 +270,7 @@ class AppConfig(_Section):
 class Secrets(_Section):
     openai_api_key: SecretStr | None
     woz_token: SecretStr | None
+    ridk_realm: SecretStr | None = None  # whoever has it controls the robot: never log it
 
 
 @dataclass(frozen=True)
@@ -357,7 +362,11 @@ def _read_secrets(env_file: Path) -> Secrets:
         value = value.strip()
         return SecretStr(value) if value else None
 
-    return Secrets(openai_api_key=lookup("OPENAI_API_KEY"), woz_token=lookup("WOZ_TOKEN"))
+    return Secrets(
+        openai_api_key=lookup("OPENAI_API_KEY"),
+        woz_token=lookup("WOZ_TOKEN"),
+        ridk_realm=lookup("RIDK_REALM"),
+    )
 
 
 def _hash(data: Mapping[str, Any]) -> str:

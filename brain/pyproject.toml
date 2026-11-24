@@ -16,6 +16,8 @@ dependencies = [
     "sounddevice>=0.4.6,<0.6",  # microphone + speaker (PortAudio wheels for Windows + macOS)
     "onnxruntime>=1.17,<2",     # Silero VAD without torch (~15 MB instead of hundreds)
     "websockets>=15,<17",       # body server (desktop pet, fake robot); 15+ for regex origins
+    "autobahn>=24.4,<27",       # RidK (Alpha Mini) is WAMP; asyncio flavour, no twisted
+    "msgpack>=1.0,<2",          # the RidK router speaks msgpack (course examples)
 ]
 
 [project.optional-dependencies]

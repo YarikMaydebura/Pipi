@@ -90,6 +90,19 @@ def test_api_key_is_read_from_env_file(tmp_config_dir: Path, no_env_secrets: Non
     assert "sk-from-file" not in repr(secrets)  # SecretStr hides the value
 
 
+def test_ridk_realm_is_a_secret_read_from_env_file(
+    tmp_config_dir: Path, no_env_secrets: None
+) -> None:
+    # Whoever has the realm controls the robot: same handling as the API key.
+    _write(tmp_config_dir / "test.env", "RIDK_REALM=rie.0123abcd\n")
+    cfg = _write(tmp_config_dir / "dev.yaml", "extends: base.yaml\nmode: dev\n")
+    loaded = load_config(cfg)
+    assert loaded.secrets.ridk_realm is not None
+    assert loaded.secrets.ridk_realm.get_secret_value() == "rie.0123abcd"
+    assert "rie.0123abcd" not in repr(loaded.secrets)
+    assert loaded.app.robot.ridk_url.startswith("ws")
+
+
 def test_environment_variable_wins_over_env_file(
     tmp_config_dir: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

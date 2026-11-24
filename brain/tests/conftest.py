@@ -20,6 +20,7 @@ def no_env_secrets(monkeypatch: pytest.MonkeyPatch) -> None:
     """Make sure real secrets from the developer's shell never leak into a test."""
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("WOZ_TOKEN", raising=False)
+    monkeypatch.delenv("RIDK_REALM", raising=False)
 
 
 @pytest.fixture

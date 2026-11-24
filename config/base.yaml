@@ -24,6 +24,9 @@ bodies:                   # WebSocket bodies (desktop pet, fake robot); seconds
 
 robot:
   body: fake_robot        # fake_robot | alpha_mini
+  ridk_url: ws://wamp.robotsindeklas.nl  # RidK WAMP router (course examples); realm: RIDK_REALM in .env
+  ridk_connect_timeout_s: 15
+  ridk_call_timeout_s: 20 # one RidK call; motions and speech can take several seconds
 
 timers:
   focus_s: 240            # fixed reading time before the break (4 min)
