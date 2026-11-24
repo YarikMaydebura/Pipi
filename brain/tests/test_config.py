@@ -34,6 +34,14 @@ def test_study_uses_fixed_four_minute_focus_and_real_robot() -> None:
     assert app.robot.body == "alpha_mini"
 
 
+def test_study_body_server_is_not_reachable_from_the_network() -> None:
+    # The pet runs on this laptop and the Alpha Mini goes out through RidK: nothing on the
+    # (eduroam) LAN may connect to the body server and pose as a body during a session.
+    app = load_config(CONFIG_DIR / "study.yaml").app
+    assert app.server.host == "127.0.0.1"
+    assert app.woz.host == "0.0.0.0"  # the panel is on a second device (it needs WOZ_TOKEN)
+
+
 def test_demo_has_no_break_limit() -> None:
     assert load_config(CONFIG_DIR / "demo.yaml").app.timers.break_max_s is None
 

@@ -338,11 +338,15 @@ async def test_switch_robot_body(
     assert s.ctl.snapshot().active_body == "alpha_mini"
     await s.woz("end_session")
     await task
-    assert s.data("cue_change")[0] == {
-        "cue": "robot_body",
-        "old": "fake_robot",
-        "new": "alpha_mini",
-    }
+    assert s.data("cue_change") == [
+        {"cue": "robot_body", "old": "fake_robot", "new": "alpha_mini"},
+        # what the participant can now notice (docs/LOGGING_AND_STUDY.md §4)
+        {"cue": "same_eyes", "old": "display", "new": "none"},
+        {"cue": "same_voice", "old": "tts_both", "new": "builtin_robot"},
+    ]
+    start = s.data("session_start")[0]
+    assert start["cue_checklist"]["same_voice"] == "tts_both"  # began on the fake robot
+    assert start["cues_intended"]["same_voice"] is True
     switch = [d for d in s.data("migration") if d["direction"] == "robot_switch"]
     assert switch[0]["success"] is True
 

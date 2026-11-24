@@ -4,7 +4,8 @@ extends: base.yaml
 mode: study
 
 server:
-  host: 0.0.0.0           # WoZ panel runs on a second laptop
+  host: 127.0.0.1         # body server: only the pet on this laptop (the robot uses RidK).
+                          # The WoZ panel on the second device is `woz.host` below.
 
 robot:
   body: alpha_mini

@@ -12,6 +12,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any, cast
 
+from pipi_brain.cues import cue_changes
 from pipi_brain.phases.context import MissingLineValue
 from pipi_brain.phases.flow import (
     BREAK_PHASES,
@@ -237,8 +238,12 @@ async def _play_motion(ctl: SessionController, command: WozCommand) -> CommandOu
 
 async def _switch_robot_body(ctl: SessionController, command: WozCommand) -> CommandOutcome:
     target: Any = command.args["body"]
+    before = ctl.cue_checklist()
     async with ctl.safe.critical():
         error = await ctl.bodies.switch_robot_body(target)
+    # What the participant can notice now (the body switch itself is logged by the manager).
+    for change in cue_changes(before, ctl.cue_checklist(), skip={"robot_body"}):
+        ctl.events.log("cue_change", change)
     ctl.push_state()
     return OK if error is None else _fail(error)
 

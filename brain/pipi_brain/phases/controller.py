@@ -26,6 +26,7 @@ from typing import Any, get_args
 from pipi_brain.bodies.base import Body
 from pipi_brain.bodies.manager import BodyManager, ManagerSettings
 from pipi_brain.config import AppConfig
+from pipi_brain.cues import cue_checklist
 from pipi_brain.dialogue.content import DialogueContent
 from pipi_brain.dialogue.llm import DialogueEngine
 from pipi_brain.games.setup import GameSetup, check_session, load_game_setup
@@ -539,9 +540,15 @@ class SessionController:
                 "good_sport": self.games.config.good_sport,
                 "bang_detector": self._deps.bang_detector is not None,
             },
-            "cue_checklist": app.cues.model_dump(),
+            # what participants could actually notice (cues.py), and what the config intends
+            "cue_checklist": self.cue_checklist(),
+            "cues_intended": app.cues.model_dump(),
             **self._start_data,
         }
+
+    def cue_checklist(self) -> dict[str, Any]:
+        """The identity cues of the current robot body (docs/LOGGING_AND_STUDY.md §4)."""
+        return cue_checklist(self.app.cues, self.bodies.robot_name, self.bodies.robot)
 
     def _finalize(self, reason: str) -> dict[str, Any]:
         now = self._clock.now()
