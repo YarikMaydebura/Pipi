@@ -1,0 +1,84 @@
+# The real Alpha Mini's moves over RidK (brain/pipi_brain/bodies/alpha_mini_moves.py).
+# motions.yaml -> `alpha_mini: <move name>` points here.
+#
+# RULE: only joints and behaviors listed under `verified` may be used, and joint values must
+# stay inside the listed range. Both come from the course's example scripts (see
+# tools/robot_check.py) — nothing is guessed. A move that uses anything else stops the brain at
+# startup. To add a joint or behavior: test it in the lab with robot_check first, then list it
+# here (and widen a range only after seeing the robot do it safely).
+#
+# UNTESTED ON THE ROBOT (Nov 24 2026): no realm yet. To check in the lab:
+#   - which sign of body.head.pitch is "down" (sleep / act_sleeping assume +0.1 = down)
+#   - whether a motor.write / behavior call returns at once or when the move has finished
+#   - whether +-0.1 rad (~6 degrees) is visible enough for charades; widen if safe
+#
+# A move is a list of steps, played in order. A step is either
+#   {behavior: <name>}                     a built-in behavior (rom.optional.behavior.play)
+#   {frames: [{time: <ms>, data: {<joint>: <rad>}}, ...]}   keyframes (rom.actuator.motor.write)
+# `min_ms` on a step: wait at least this long before the next step (a behavior's length is
+# unknown; frames steps already wait until their last keyframe).
+
+verified:
+  joints:
+    body.head.pitch: [-0.1, 0.1]  # the course nod example moves between -0.1 and 0.1 rad
+  behaviors:
+    - BlocklyStand          # course example: stand up
+    - BlocklyWaveRightArm   # course example: wave
+
+moves:
+  # --- system / migration ---------------------------------------------------------------------
+  idle:
+    - frames: [{time: 400, data: {body.head.pitch: 0.0}}]
+  wake_up:
+    - behavior: BlocklyStand
+    - frames: [{time: 400, data: {body.head.pitch: 0.0}}]
+  sleep:  # head slowly down
+    - frames: [{time: 1500, data: {body.head.pitch: 0.1}}]
+
+  # --- social ---------------------------------------------------------------------------------
+  nod:  # exactly the course example
+    - frames:
+        - {time: 400, data: {body.head.pitch: 0.1}}
+        - {time: 1200, data: {body.head.pitch: -0.1}}
+        - {time: 2000, data: {body.head.pitch: 0.1}}
+        - {time: 2400, data: {body.head.pitch: 0.0}}
+  wave:
+    - behavior: BlocklyWaveRightArm
+  excited:  # quick little nods
+    - frames:
+        - {time: 200, data: {body.head.pitch: 0.1}}
+        - {time: 400, data: {body.head.pitch: -0.1}}
+        - {time: 600, data: {body.head.pitch: 0.1}}
+        - {time: 800, data: {body.head.pitch: -0.1}}
+        - {time: 1000, data: {body.head.pitch: 0.0}}
+  celebrate:
+    - behavior: BlocklyWaveRightArm
+
+  # --- Crocodile acting (head + wave only, until the arm joints are verified) ------------------
+  act_sleeping:  # head droops, then slow breathing
+    - frames:
+        - {time: 1500, data: {body.head.pitch: 0.1}}
+        - {time: 2700, data: {body.head.pitch: 0.06}}
+        - {time: 3900, data: {body.head.pitch: 0.1}}
+        - {time: 5100, data: {body.head.pitch: 0.06}}
+  act_robot:  # stiff, jerky steps with pauses in between
+    - frames:
+        - {time: 150, data: {body.head.pitch: 0.1}}
+        - {time: 900, data: {body.head.pitch: 0.1}}
+        - {time: 1050, data: {body.head.pitch: 0.0}}
+        - {time: 1800, data: {body.head.pitch: 0.0}}
+        - {time: 1950, data: {body.head.pitch: -0.1}}
+        - {time: 2700, data: {body.head.pitch: -0.1}}
+        - {time: 2850, data: {body.head.pitch: 0.0}}
+        - {time: 3600, data: {body.head.pitch: 0.0}}
+  act_dancer:  # head bobbing to a beat, then a wave
+    - frames:
+        - {time: 300, data: {body.head.pitch: 0.1}}
+        - {time: 600, data: {body.head.pitch: 0.0}}
+        - {time: 900, data: {body.head.pitch: 0.1}}
+        - {time: 1200, data: {body.head.pitch: 0.0}}
+        - {time: 1500, data: {body.head.pitch: 0.1}}
+        - {time: 1800, data: {body.head.pitch: 0.0}}
+        - {time: 2100, data: {body.head.pitch: 0.1}}
+        - {time: 2400, data: {body.head.pitch: 0.0}}
+    - behavior: BlocklyWaveRightArm

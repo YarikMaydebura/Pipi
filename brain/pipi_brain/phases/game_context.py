@@ -169,6 +169,9 @@ class SessionGameContext:
     def _gesture(self, gesture: str) -> str:
         return "none" if gesture == "none" else (self._resolve(gesture) or "none")
 
+    def can_play_motion(self, name: str) -> bool:
+        return self._ctx.games.motions.resolve(name, self._ctx.bodies.active_name) is not None
+
     async def play_motion(self, name: str) -> bool:
         resolved = self._resolve(name)
         if resolved is None:
