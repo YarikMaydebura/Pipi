@@ -1,20 +1,27 @@
 // Which animation plays for a motion name, and for how long. The brain sends gesture names
 // (dialogue `gesture`: nod, shake_head, think, excited, celebrate, shrug, wave, signature_wave),
-// game motions (docs/GAMES.md §2: act_*, duel_*, sad, bow) and the body's own clip names
-// (wake_up, sleep, dance, ...). Each name maps to an ordered list of candidate clips; the first
-// clip the model has wins, otherwise a procedural motion of that name, otherwise the motion is
-// unknown (acked with ok: false, like the pet does). Pure, so it is unit-tested.
-import { ACT_MOTION_NAMES } from './gameMotions';
+// game motions (docs/GAMES.md §2: act_*, duel_*, stare_*, rps_*, sad, bow) and the body's own
+// clip names (wake_up, sleep, dance, ...). Each name maps to an ordered list of candidate clips;
+// the first clip the model has wins, otherwise a procedural motion of that name, otherwise the
+// motion is unknown (acked with ok: false, like the pet does). Pure, so it is unit-tested.
+import { ACT_MOTION_NAMES, RPS_CHOICE_MOTION_NAMES } from './gameMotions';
 import { PROCEDURAL_MOTIONS } from './proceduralMotions';
 
 /** Loops the robot rests in between motions (the brain's eyes / speech pick one). */
 export const REST_LOOP_CLIPS = ['idle', 'talk', 'think', 'sleep', 'listen', 'dance'] as const;
+/** Held motions alpha_mini.glb has clips for: the crocodile acting loops and the duel stance. */
+const HELD_CLIPS: readonly string[] = [...ACT_MOTION_NAMES, 'duel_ready'];
 /**
  * Motions that keep going until the next motion or a `stop`: the crocodile acting loops (the
- * brain may re-send them while the participant guesses) and the duel's ready stance, which holds
- * until duel_draw / duel_hit / duel_win.
+ * brain may re-send them while the participant guesses), the duel's ready stance (holds until
+ * duel_draw / duel_hit / duel_win), the staring stance (until stare_lose or a reaction) and the
+ * robot's rock-paper-scissors choice (shown while Pipi judges). The last two are procedural only.
  */
-export const HELD_MOTIONS: readonly string[] = [...ACT_MOTION_NAMES, 'duel_ready'];
+export const HELD_MOTIONS: readonly string[] = [
+  ...HELD_CLIPS,
+  'stare_ready',
+  ...RPS_CHOICE_MOTION_NAMES,
+];
 /** Clips that repeat (LoopRepeat in the mixer). */
 export const LOOP_CLIPS: readonly string[] = [...REST_LOOP_CLIPS, ...HELD_MOTIONS];
 export const ONE_SHOT_CLIPS = [
@@ -31,8 +38,15 @@ export const ONE_SHOT_CLIPS = [
   'shrug',
   'bow',
 ] as const;
-/** Every clip alpha_mini.glb is expected to contain (docs/SYSTEM_DESIGN.md §6). */
-export const ROBOT_CLIPS: readonly string[] = [...LOOP_CLIPS, ...ONE_SHOT_CLIPS];
+/**
+ * Every clip alpha_mini.glb is expected to contain (docs/SYSTEM_DESIGN.md §6). The staring and
+ * rps motions are not in it: they are procedural (gameMotions.ts) until the model gets clips.
+ */
+export const ROBOT_CLIPS: readonly string[] = [
+  ...REST_LOOP_CLIPS,
+  ...HELD_CLIPS,
+  ...ONE_SHOT_CLIPS,
+];
 
 /** Loops the robot rests in between one-shots. */
 export type BaseLoop = 'idle' | 'talk' | 'listen' | 'think' | 'sleep';

@@ -8,9 +8,10 @@
 # docs/ROBOT_RIDK.md and the manual in docs/ridk/, or ask Yarik to test in the lab.
 # While every alpha_mini entry is null, games that need motions are hidden on the real robot.
 #
-# fake_robot (web/src/fake-robot/motionPlan.ts): unknown names get an error ack. act_* and
-# duel_ready are HELD (they loop until the next motion, `idle`, `stop` or sleep; sending the
-# same name again continues without restarting); everything else plays once and rests.
+# fake_robot (web/src/fake-robot/motionPlan.ts): unknown names get an error ack. act_*,
+# duel_ready, stare_ready, rps_rock, rps_paper and rps_scissors are HELD (they loop until the
+# next motion, `idle`, `stop` or sleep; sending the same name again continues without
+# restarting); everything else plays once and rests (rps_shake is one ~0.6 s beat).
 # Aliases on the body side: wave -> signature_wave, excited -> happy.
 # desktop_pet: has no act_* / duel_* clips (it answers "unknown motion"), so they are null:
 # games run on the robot body. If the break has to run on the screen (robot missing),
@@ -45,10 +46,10 @@ motions:
   duel_draw:      {group: duel, fake_robot: duel_draw, desktop_pet: null, alpha_mini: null}
   duel_hit:       {group: duel, fake_robot: duel_hit, desktop_pet: null, alpha_mini: null}
   duel_win:       {group: duel, fake_robot: duel_win, desktop_pet: null, alpha_mini: null}
-  # --- RPS and staring (M6: no clips on any body yet) -----------------------------------------
-  rps_shake:      {group: rps, fake_robot: null, desktop_pet: null, alpha_mini: null}
-  rps_rock:       {group: rps, fake_robot: null, desktop_pet: null, alpha_mini: null}
-  rps_paper:      {group: rps, fake_robot: null, desktop_pet: null, alpha_mini: null}
-  rps_scissors:   {group: rps, fake_robot: null, desktop_pet: null, alpha_mini: null}
-  stare_ready:    {group: staring, fake_robot: null, desktop_pet: null, alpha_mini: null}
-  stare_lose:     {group: staring, fake_robot: null, desktop_pet: null, alpha_mini: null}
+  # --- RPS and staring (M6: procedural on the fake robot only) -------------------------------
+  rps_shake:      {group: rps, fake_robot: rps_shake, desktop_pet: null, alpha_mini: null}
+  rps_rock:       {group: rps, fake_robot: rps_rock, desktop_pet: null, alpha_mini: null}
+  rps_paper:      {group: rps, fake_robot: rps_paper, desktop_pet: null, alpha_mini: null}
+  rps_scissors:   {group: rps, fake_robot: rps_scissors, desktop_pet: null, alpha_mini: null}
+  stare_ready:    {group: staring, fake_robot: stare_ready, desktop_pet: null, alpha_mini: null}
+  stare_lose:     {group: staring, fake_robot: stare_lose, desktop_pet: null, alpha_mini: null}
