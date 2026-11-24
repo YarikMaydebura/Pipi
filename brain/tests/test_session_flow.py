@@ -101,8 +101,12 @@ async def test_full_session_runs_every_phase_and_writes_the_log(
     assert json.loads((folder / "memory.json").read_text("utf-8"))["name"] == "Lena"
     saved = json.loads((folder / "summary.json").read_text("utf-8"))
     assert saved["phase_durations_ms"]["FOCUS"] == 30_000  # virtual time: exact
-    # privacy: the name is in memory.json, but never in an event's memory_update
+    # privacy: the name is in memory.json, but nowhere in events.jsonl (also not in what the
+    # participant said before Pipi knew it was a name, nor in Pipi's replies)
     assert all("Lena" not in json.dumps(d) for d in s.data("memory_update"))
+    assert "lena" not in (folder / "events.jsonl").read_text("utf-8").lower()
+    user_turns = [d["text"] for d in s.data("turn") if d["speaker"] == "user"]
+    assert "I'm [NAME]" in user_turns
     start = s.data("session_start")[0]
     assert start["cue_checklist"]["signature_phrase"] is True
 
@@ -329,6 +333,22 @@ async def test_llm_and_tts_failures_use_fallbacks(
     assert "llm_fallback" in s.pipi_lines()
     assert s.data("tts_error")[0]["fallback"] == "captions_only"
     assert s.data("turn")[0]["audio"] is False
+
+
+async def test_the_name_is_redacted_even_when_the_llm_never_learned_it(
+    dev_config: LoadedConfig, dialogue_content: DialogueContent, tmp_path: Path
+) -> None:
+    # LLM down during GREETING: Pipi does not know the name, but the participant said it.
+    s = make_session(
+        dev_config,
+        dialogue_content,
+        tmp_path,
+        script=["calm", "I'm Lena"],
+        llm=[RuntimeError("boom"), RuntimeError("boom")],
+    )
+    await s.run()
+    assert s.ctl.state.memory.name is None  # memory is never filled by the safety net
+    assert "lena" not in (s.logger.folder / "events.jsonl").read_text("utf-8").lower()
 
 
 async def test_every_m3_event_type_is_logged(

@@ -99,7 +99,9 @@ class PhaseContext:
         if not changed:
             return
         self.state.memory = memory
-        # Values stay out of events.jsonl (privacy): only memory.json holds e.g. the name.
+        # Values stay out of events.jsonl (privacy): only memory.json holds e.g. the name,
+        # and from now on the logger writes the name as [NAME] (also in earlier events).
+        self.events.logger.redact_name(memory.name)
         self.log("memory_update", {"fields": changed})
         self.events.logger.write_json("memory.json", memory.model_dump(mode="json"))
         self.push_state()

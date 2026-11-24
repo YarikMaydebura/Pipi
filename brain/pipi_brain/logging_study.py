@@ -3,6 +3,11 @@
 One folder per session: ``<log_dir>/<participant_id>_<YYYYMMDD-HHMMSS>/`` containing
 ``events.jsonl`` (append-only, one event per line, flushed immediately), ``memory.json`` and
 ``summary.json``. The logger never receives secrets; error texts are redacted upstream.
+
+Privacy (decision Nov 24): the participant's first name lives only in ``memory.json``. Once the
+session learns it (``redact_name``), every string in ``events.jsonl`` is written with the name
+replaced by ``[NAME]`` (whole words, any case), and the lines written before are rewritten
+once, because the participant says the name before Pipi knows it is one.
 """
 
 from __future__ import annotations
@@ -20,6 +25,8 @@ from typing import Any
 # Pseudonymous IDs only (P01, DEV, ...). Also prevents path tricks such as "../x".
 PARTICIPANT_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,32}$")
 EVENTS_FILE = "events.jsonl"
+NAME_TOKEN = "[NAME]"
+MIN_NAME_CHARS = 2  # a one-letter "name" would blank out ordinary words
 
 
 class LoggerError(Exception):
@@ -51,6 +58,48 @@ class StudyLogger:
         self.session_id = f"{participant_id}_{now().strftime('%Y%m%d-%H%M%S')}"
         self.folder = self._create_folder(log_dir, self.session_id)
         self.events_path = self.folder / EVENTS_FILE
+        self._name_patterns: list[re.Pattern[str]] = []
+
+    # --- privacy -------------------------------------------------------------------------------
+
+    def redact_name(self, name: str | None) -> None:
+        """From now on write ``name`` as ``[NAME]``; also rewrite the events written so far."""
+        cleaned = (name or "").strip()
+        if len(cleaned) < MIN_NAME_CHARS:
+            return
+        pattern = re.compile(rf"(?<!\w){re.escape(cleaned)}(?!\w)", re.IGNORECASE)
+        if any(p.pattern == pattern.pattern for p in self._name_patterns):
+            return
+        self._name_patterns.append(pattern)
+        self._rewrite_events()
+
+    def _redact(self, value: Any) -> Any:
+        if isinstance(value, str):
+            for pattern in self._name_patterns:
+                value = pattern.sub(NAME_TOKEN, value)
+            return value
+        if isinstance(value, Mapping):
+            return {key: self._redact(item) for key, item in value.items()}
+        if isinstance(value, list | tuple):
+            return [self._redact(item) for item in value]
+        return value
+
+    def _rewrite_events(self) -> None:
+        """Redact the lines already on disk (atomic replace, so a crash never loses the log)."""
+        if not self.events_path.is_file():
+            return
+        tmp = self.events_path.with_suffix(".jsonl.tmp")
+        try:
+            lines = self.events_path.read_text(encoding="utf-8").splitlines()
+            redacted = [
+                json.dumps(self._redact(json.loads(line)), ensure_ascii=False, default=str)
+                for line in lines
+                if line.strip()
+            ]
+            tmp.write_text("".join(line + "\n" for line in redacted), encoding="utf-8")
+            os.replace(tmp, self.events_path)
+        except (OSError, ValueError) as exc:
+            print(f"[logger] could not redact the name in earlier events: {exc}", file=sys.stderr)
 
     @staticmethod
     def _create_folder(log_dir: Path, session_id: str) -> Path:
@@ -83,7 +132,7 @@ class StudyLogger:
             "phase": phase,
             "body": body,
             "type": event_type,
-            "data": dict(data or {}),
+            "data": self._redact(dict(data or {})),
         }
         line = json.dumps(event, ensure_ascii=False, default=str)
         try:

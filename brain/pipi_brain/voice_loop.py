@@ -284,7 +284,9 @@ class VoiceLoop:
         if not changed:
             return
         self.memory = new_memory
-        # Values stay out of events.jsonl (privacy): only memory.json holds e.g. the name.
+        # Values stay out of events.jsonl (privacy): only memory.json holds e.g. the name,
+        # and from now on the logger writes the name as [NAME] (also in earlier events).
+        self._logger.redact_name(self.memory.name)
         self._log("memory_update", {"fields": changed})
         self._logger.write_json("memory.json", self.memory.model_dump(mode="json"))
 
