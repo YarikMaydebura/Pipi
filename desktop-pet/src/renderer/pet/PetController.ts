@@ -7,7 +7,7 @@
 // changes whether Pipi is on screen, asleep or away.
 // It also tells the interaction layer what the brain is doing (BrainActivity), so the pet's
 // own reactions never fight brain commands, and it is the ReactionTarget those reactions use.
-import type { BrainToBody, EyeState, RobotSide } from '@pipi/shared';
+import type { BrainToBody, EyeState, PersonaOption, RobotSide } from '@pipi/shared';
 import type { ReactionTarget } from '../interaction/interactionController';
 import type { BrainActivity } from '../interaction/reactionPolicy';
 import type { MouthShape } from '@pipi/shared/look';
@@ -44,9 +44,16 @@ export interface MigrationService {
   appear(): Promise<void>;
 }
 
+/** The persona cards under Pipi (persona/personaCards.ts). */
+export interface PersonaCardsService {
+  show(options: readonly PersonaOption[]): void;
+  hide(): void;
+}
+
 export interface PetServices {
   readonly speech?: SpeechService;
   readonly caption?: CaptionService;
+  readonly personaCards?: PersonaCardsService;
   readonly migration?: MigrationService;
 }
 
@@ -214,6 +221,11 @@ export class PetController implements ReactionTarget {
         // Study FOCUS phase: the interaction layer stops fidgets and keeps reactions tiny.
         this.calmHandler?.(message.on);
         return OK;
+      case 'persona_picker':
+        // PERSONA_PICK: cards under Pipi; an empty list hides them.
+        if (message.options.length === 0) this.services.personaCards?.hide();
+        else this.services.personaCards?.show(message.options);
+        return OK;
       case 'stop':
         return this.stop();
     }
@@ -228,6 +240,7 @@ export class PetController implements ReactionTarget {
   private stop(): HandleResult {
     this.services.speech?.stop();
     this.services.caption?.hide();
+    this.services.personaCards?.hide();
     this.speaking = false;
     this.setChestPulse(false);
     this.view.setSpeechLevel(0);

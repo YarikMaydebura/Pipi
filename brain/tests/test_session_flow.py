@@ -251,6 +251,56 @@ async def test_persona_timeout_uses_the_default(
     assert s.data("phase_change")[1]["trigger"] == "timer"
 
 
+PERSONA_IDS = ["cheerful", "calm", "witty"]
+
+
+def _pickers(s: Session) -> list[list[str]]:
+    """Every persona_picker the pet got, as lists of persona ids ([] = hide)."""
+    return [
+        [option.id for option in options]  # type: ignore[attr-defined]
+        for call, options in s.pet.calls
+        if call == "persona_picker"
+    ]
+
+
+async def test_a_click_on_a_persona_card_chooses_the_persona(
+    dev_config: LoadedConfig, dialogue_content: DialogueContent, tmp_path: Path
+) -> None:
+    s = make_session(dev_config, dialogue_content, tmp_path, script=[None, *HAPPY_SCRIPT[1:]])
+    s.pet.persona_click = "persona:calm"  # the participant clicks instead of talking
+
+    await s.run()
+
+    assert s.data("persona_choice") == [{"persona": "calm", "method": "click"}]
+    assert s.ctl.state.persona == "calm"
+    assert _pickers(s) == [PERSONA_IDS, []]  # cards shown, then hidden
+    assert "persona_chosen" in s.pipi_lines()
+
+
+async def test_voice_still_works_and_the_cards_are_hidden_afterwards(
+    dev_config: LoadedConfig, dialogue_content: DialogueContent, tmp_path: Path
+) -> None:
+    s = happy(dev_config, dialogue_content, tmp_path)
+
+    await s.run()
+
+    assert s.data("persona_choice") == [{"persona": "witty", "method": "voice"}]
+    assert _pickers(s) == [PERSONA_IDS, []]
+
+
+async def test_clicks_that_are_not_a_known_persona_card_are_ignored(
+    dev_config: LoadedConfig, dialogue_content: DialogueContent, tmp_path: Path
+) -> None:
+    # A click on Pipi itself ("pipi") or an unknown card must not pick anything.
+    s = make_session(dev_config, dialogue_content, tmp_path, script=[None])
+    s.pet.persona_click = "persona:grumpy"
+
+    await s.run()
+
+    assert s.data("persona_choice") == [{"persona": "cheerful", "method": "timeout"}]
+    assert _pickers(s)[-1] == []
+
+
 async def test_persona_unclear_answer_gets_one_clarifying_question(
     dev_config: LoadedConfig, dialogue_content: DialogueContent, tmp_path: Path
 ) -> None:

@@ -64,6 +64,34 @@
       "on": true
     },
     {
+      "type": "persona_picker",
+      "id": "b-persona-1",
+      "ts": 1700000000000,
+      "options": [
+        {
+          "id": "cheerful",
+          "label": "Cheerful",
+          "description": "Energetic, encouraging and playful."
+        },
+        {
+          "id": "calm",
+          "label": "Calm",
+          "description": "Gentle, warm and relaxed."
+        },
+        {
+          "id": "witty",
+          "label": "Witty",
+          "description": "Dry humour and friendly teasing."
+        }
+      ]
+    },
+    {
+      "type": "persona_picker",
+      "id": "b-persona-hide",
+      "ts": 1700000000000,
+      "options": []
+    },
+    {
       "type": "stop",
       "id": "b-stop-1",
       "ts": 1700000000000
@@ -104,6 +132,12 @@
       "id": "6f1c2a80-0105-4000-8000-000000000105",
       "ts": 1763100001400,
       "target": "pipi"
+    },
+    {
+      "type": "user_click",
+      "id": "p-click-persona",
+      "ts": 1763100001400,
+      "target": "persona:calm"
     }
   ],
   "invalid_brain_to_body": [
@@ -164,6 +198,47 @@
       "id": "b-stop-x",
       "ts": 1700000000000,
       "now": true
+    },
+    {
+      "type": "persona_picker",
+      "id": "x",
+      "ts": 1,
+      "options": [
+        {
+          "id": "",
+          "label": "Calm",
+          "description": ""
+        }
+      ]
+    },
+    {
+      "type": "persona_picker",
+      "id": "x",
+      "ts": 1,
+      "options": [
+        {
+          "id": "calm",
+          "label": "",
+          "description": ""
+        }
+      ]
+    },
+    {
+      "type": "persona_picker",
+      "id": "x",
+      "ts": 1,
+      "options": [
+        {
+          "id": "Calm Mode",
+          "label": "Calm",
+          "description": ""
+        }
+      ]
+    },
+    {
+      "type": "persona_picker",
+      "id": "x",
+      "ts": 1
     }
   ],
   "invalid_body_to_brain": [

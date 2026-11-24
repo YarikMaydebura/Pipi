@@ -18,6 +18,14 @@
         <p class="speech-bubble-text" aria-live="polite"></p>
       </div>
       <canvas id="pet-canvas" class="pet-canvas" aria-hidden="true"></canvas>
+      <!-- PERSONA_PICK: three small cards under Pipi (persona/personaCards.ts). -->
+      <nav
+        id="persona-cards"
+        class="persona-cards"
+        aria-label="Choose Pipi's personality"
+        data-visible="false"
+        hidden
+      ></nav>
 
       <!-- 2D fallback, shown only if WebGL or the 3D model fails. -->
       <div id="pet-fallback" class="pet-fallback" hidden>

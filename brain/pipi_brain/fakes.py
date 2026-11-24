@@ -18,7 +18,7 @@ import numpy as np
 from pipi_brain.bodies.base import NOT_CONNECTED, BodyResult, Entrance, Exit, SpeakResult
 from pipi_brain.dialogue.prompts import ChatMessage
 from pipi_brain.phases.inputs import TypedLine
-from pipi_brain.protocol import Expression, EyeState
+from pipi_brain.protocol import Expression, EyeState, PersonaOption
 from pipi_brain.speech.bang import Bang
 from pipi_brain.speech.base import (
     AudioFrame,
@@ -187,6 +187,9 @@ class FakeBody:
     speak_delivered: bool = True
     stop_ok: bool = True  # False = the body does not ack `stop` (old workaround is used)
     on_speak: Callable[[], None] | None = None  # e.g. check the audio gate during speech
+    # set = when persona cards are shown, the participant clicks this target right away
+    persona_click: str | None = None
+    click_listeners: list[Callable[[str], None]] = field(default_factory=list)
     calls: list[tuple[str, object]] = field(default_factory=list)
     spoken: list[tuple[str, SpeechAudio | None, str]] = field(default_factory=list)
 
@@ -229,6 +232,21 @@ class FakeBody:
 
     async def set_calm(self, on: bool) -> BodyResult:
         return self._result("calm", on)
+
+    async def show_persona_picker(self, options: Sequence[PersonaOption]) -> BodyResult:
+        result = self._result("persona_picker", list(options))
+        if options and self.persona_click and self.connected:
+            asyncio.get_running_loop().call_soon(self.click, self.persona_click)
+        return result
+
+    def subscribe_clicks(self, listener: Callable[[str], None]) -> Callable[[], None]:
+        self.click_listeners.append(listener)
+        return lambda: self.click_listeners.remove(listener)
+
+    def click(self, target: str) -> None:
+        """The participant clicks something on this body (a persona card: "persona:<id>")."""
+        for listener in list(self.click_listeners):
+            listener(target)
 
     async def stop(self) -> BodyResult:
         result = self._result("stop", None)

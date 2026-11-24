@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections.abc import Callable
 from typing import Any, Protocol
 
 from pipi_brain.bodies.base import NOT_CONNECTED, BodyLog, BodyResult
@@ -19,6 +20,7 @@ from pipi_brain.protocol import (
     BrainToBody,
     Hello,
     SpeechDone,
+    UserClick,
     encode,
 )
 from pipi_brain.resilience import describe_error, with_timeout
@@ -60,6 +62,7 @@ class BodyChannel:
         self._connected = asyncio.Event()
         self._acks: dict[str, asyncio.Future[Ack]] = {}
         self._speech_done: dict[str, asyncio.Future[SpeechDone]] = {}
+        self._click_listeners: list[Callable[[str], None]] = []
 
     # --- connection ------------------------------------------------------------------------
 
@@ -125,6 +128,30 @@ class BodyChannel:
             done_future = self._speech_done.pop(message.ref_id, None)
             if done_future is not None and not done_future.done():
                 done_future.set_result(message)
+        elif isinstance(message, UserClick):
+            self._notify_click(message.target)
+
+    def subscribe_clicks(self, listener: Callable[[str], None]) -> Callable[[], None]:
+        """Call ``listener(target)`` for every ``user_click``; returns the unsubscribe function.
+
+        The click itself is always logged as ``body_message`` (above), listeners or not.
+        """
+        self._click_listeners.append(listener)
+
+        def unsubscribe() -> None:
+            if listener in self._click_listeners:
+                self._click_listeners.remove(listener)
+
+        return unsubscribe
+
+    def _notify_click(self, target: str) -> None:
+        for listener in list(self._click_listeners):
+            try:
+                listener(target)
+            except Exception as exc:  # a broken listener must not break the body connection
+                self._log(
+                    "body_error", {"message_type": "user_click", "error": describe_error(exc)}
+                )
 
     # --- outgoing --------------------------------------------------------------------------
 

@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import base64
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import ClassVar
 
 from pipi_brain.bodies.base import (
@@ -43,6 +43,8 @@ from pipi_brain.protocol import (
     EyeState,
     Hello,
     Motion,
+    PersonaOption,
+    PersonaPicker,
     Speak,
     Stop,
 )
@@ -131,6 +133,18 @@ class WebSocketBody:
             timeout_s=self._settings.ack_timeout_s,
             retries=self._settings.ack_retries,
         )
+
+    async def show_persona_picker(self, options: Sequence[PersonaOption]) -> BodyResult:
+        """Persona cards on the pet (an empty list hides them); harmless to resend."""
+        return await self.channel.request(
+            PersonaPicker(options=list(options)),
+            timeout_s=self._settings.ack_timeout_s,
+            retries=self._settings.ack_retries,
+        )
+
+    def subscribe_clicks(self, listener: Callable[[str], None]) -> Callable[[], None]:
+        """``listener(target)`` for every ``user_click`` from this body (e.g. "persona:calm")."""
+        return self.channel.subscribe_clicks(listener)
 
     async def stop(self) -> BodyResult:
         """Emergency stop: the body acks ``stop`` as soon as audio and motion have ended."""

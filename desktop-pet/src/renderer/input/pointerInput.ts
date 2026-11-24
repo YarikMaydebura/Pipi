@@ -3,7 +3,9 @@
 //   Pipi; main only lets clicks through where Pipi is NOT,
 // - pressing on Pipi and moving drags the window; a press without moving is a "poke",
 // - the handlers hear about pokes, drags starting/ending and the cursor entering/leaving Pipi
-//   (interaction/ turns these into reactions).
+//   (interaction/ turns these into reactions),
+// - `isOverControls` names other clickable things (the persona cards): the window catches the
+//   mouse there too, but they are not Pipi (no hover reaction, no poke, no drag).
 import type { PetBridge } from '../../preload/bridge';
 import type { ScreenPoint } from '../motion/idle';
 import type { PetView } from '../pet/PetView';
@@ -26,21 +28,31 @@ export function wirePointerInput(
   getView: () => PetView,
   bridge: PetBridge | undefined,
   handlers: PointerHandlers,
+  isOverControls: (point: ScreenPoint) => boolean = () => false,
 ): () => void {
   let interactive = false;
+  let hovering = false;
   let press: { screenX: number; screenY: number; moved: boolean } | null = null;
 
   const setInteractive = (value: boolean): void => {
     if (value === interactive) return;
     interactive = value;
     bridge?.setInteractive(value);
+  };
+
+  const setHovering = (value: boolean): void => {
+    if (value === hovering) return;
+    hovering = value;
     handlers.onHover?.(value);
     document.body.classList.toggle('is-over-pet', value);
   };
 
   const track = (point: ScreenPoint): void => {
     getView().setCursor(point);
-    if (!press) setInteractive(getView().hitTest(point));
+    if (press) return;
+    const overPet = getView().hitTest(point);
+    setHovering(overPet);
+    setInteractive(overPet || isOverControls(point));
   };
 
   const onMouseMove = (event: MouseEvent): void => {

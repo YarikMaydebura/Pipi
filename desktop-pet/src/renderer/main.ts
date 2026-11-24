@@ -22,13 +22,14 @@ import {
 import { createStageMotion } from './migration/stageMotion';
 import { Migrator } from './migration/migrator';
 import { PetController } from './pet/PetController';
+import { cardTarget, createPersonaCards, type PersonaCards } from './persona/personaCards';
 import type { PetView } from './pet/PetView';
 import { Showcase, showcaseRequested } from './showcase/showcase';
 import { createShowcaseActor } from './showcase/showcaseActor';
 import { createShowcaseLabel } from './showcase/showcaseLabel';
 
 const START_TIMEOUT_MS = 8000;
-const PET_VERSION = '0.4.0'; // sent in `hello`; bump when the pet's behaviour changes
+const PET_VERSION = '0.5.0'; // sent in `hello`; bump when the pet's behaviour changes (0.5: persona cards)
 const CLICK_TARGET = 'pipi'; // `user_click.target` for a click on Pipi itself
 const FALLBACK_BRAIN_URL = 'ws://127.0.0.1:8765'; // when the preload bridge is missing
 
@@ -106,17 +107,24 @@ async function boot(): Promise<void> {
 
   // Showcase mode plays every animation by itself: no brain, no idle fidgets in between.
   const showcase = showcaseRequested(window.location.search);
-  const client = connectToBrain(pet, () => reducedMotion.matches, !showcase);
-  wirePointerInput(() => pet.currentView, window.pipi, {
+  const { client, personaCards } = connectToBrain(pet, () => reducedMotion.matches, !showcase);
+  const pointerHandlers = {
     onPoke: () => {
       interaction.click();
       if (!client.send({ type: 'user_click', target: CLICK_TARGET })) {
         console.info('[pipi] user_click not sent: no brain connection');
       }
     },
-    onDrag: (dragging) => interaction.drag(dragging),
-    onHover: (over) => interaction.hover(over),
-  });
+    onDrag: (dragging: boolean) => interaction.drag(dragging),
+    onHover: (over: boolean) => interaction.hover(over),
+  };
+  // The persona cards are clickable too: the click-through window must catch the mouse there.
+  wirePointerInput(
+    () => pet.currentView,
+    window.pipi,
+    pointerHandlers,
+    (point) => personaCards.hitTest(point),
+  );
   if (showcase) startShowcase(pet);
   else interaction.start();
 
@@ -142,15 +150,20 @@ function startShowcase(pet: PetController): void {
   console.info('[pipi] showcase mode: playing every animation in a loop (no brain)');
 }
 
+interface BrainLink {
+  readonly client: BrainClient;
+  readonly personaCards: PersonaCards;
+}
+
 /**
- * Speech, caption bubble and migration services + the WebSocket link to the brain.
- * `connect: false` (showcase mode) sets up the services but never dials the brain.
+ * Speech, caption bubble, persona cards and migration services + the WebSocket link to the
+ * brain. `connect: false` (showcase mode) sets up the services but never dials the brain.
  */
 function connectToBrain(
   pet: PetController,
   reducedMotion: () => boolean,
   connect = true,
-): BrainClient {
+): BrainLink {
   const bridge = window.pipi;
   const caption = createSpeechBubble(element<HTMLElement>('#speech-bubble'));
   let client: BrainClient | null = null;
@@ -171,7 +184,13 @@ function connectToBrain(
     stage: createStageMotion(element<HTMLElement>('.pet'), reducedMotion),
     view: () => pet.currentView,
   });
-  pet.setServices({ speech, caption, migration });
+  const personaCards = createPersonaCards(element<HTMLElement>('#persona-cards'), (id) => {
+    // PERSONA_PICK: the brain takes this as the participant's choice (method "click").
+    if (!client?.send({ type: 'user_click', target: cardTarget(id) })) {
+      console.warn('[pipi] persona choice not sent: no brain connection');
+    }
+  });
+  pet.setServices({ speech, caption, personaCards, migration });
   client = new BrainClient({
     url: bridge?.brainUrl ?? FALLBACK_BRAIN_URL,
     body: 'desktop_pet',
@@ -179,7 +198,7 @@ function connectToBrain(
     handle: (message) => pet.handle(message),
   });
   if (connect) client.start();
-  return client;
+  return { client, personaCards };
 }
 
 boot().catch((error: unknown) => {
